@@ -1,0 +1,977 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#121212">
+  <meta name="description" content="TEMPLATE INTERATIVO – ROTINA SAGRADA DE FRANCISCO">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <title>ROTINA SAGRADA</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 1rem;
+      background: #121212;
+      color: #FFFFFF;
+      text-transform: uppercase;
+    }
+    h1, h2 {
+      color: #FFFFFF;
+    }
+    .tab-nav {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      overflow-x: auto;
+    }
+    .tab-nav button {
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      border: none;
+      background: #333333;
+      color: #FFFFFF;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: background 0.2s;
+    }
+    .tab-nav button.active {
+      background: #1E88E5;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .section {
+      background: #333333;
+      padding: 1rem 1.5rem;
+      margin: 1rem 0;
+      border-radius: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+    .checklist label {
+      display: block;
+      margin-bottom: 0.75rem;
+      font-size: 1rem;
+    }
+    input[type="checkbox"], input[type="radio"] {
+      margin-right: 0.5rem;
+      accent-color: #1E88E5;
+    }
+    p, ul {
+      margin: 0.5rem 0;
+      font-size: 1rem;
+    }
+    .mood-selector {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .mood-selector button {
+      font-size: 1.5rem;
+      padding: 0.5rem;
+      border: none;
+      background: #444444;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .mood-selector button:hover {
+      transform: scale(1.1);
+      background: #555555;
+    }
+    .mood-selector button.selected {
+      background: #1E88E5;
+    }
+    .water-tracker select, .pomodoro select {
+      padding: 0.5rem;
+      font-size: 1rem;
+      border-radius: 5px;
+      background: #444444;
+      color: #FFFFFF;
+      border: 1px solid #FFFFFF;
+    }
+    .todo-list input[type="text"], .gratitude input[type="text"], .calendar input, .obstacles textarea, .important-tasks input[type="text"] {
+      width: calc(100% - 2rem);
+      padding: 0.5rem;
+      margin: 0.5rem 0;
+      border: 1px solid #FFFFFF;
+      border-radius: 5px;
+      background: #444444;
+      color: #FFFFFF;
+      text-transform: uppercase;
+    }
+    .obstacles textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+    .pomodoro {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .pomodoro button, .calendar button, #request-notifications, #reset-data, .todo-list button, .important-tasks button {
+      padding: 0.5rem;
+      font-size: 1rem;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      color: #FFFFFF;
+      text-transform: uppercase;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .pomodoro button:hover, .calendar button:hover, #request-notifications:hover, #reset-data:hover, .todo-list button:hover, .important-tasks button:hover {
+      transform: scale(1.05);
+    }
+    .pomodoro button {
+      background: #1E88E5;
+    }
+    .pomodoro button:disabled {
+      background: #555555;
+    }
+    .calendar button, .todo-list button, .important-tasks button {
+      background: #2E7D32;
+    }
+    #request-notifications, #reset-data {
+      background: #D81B60;
+    }
+    .pomodoro span {
+      font-size: 1.2rem;
+    }
+    .mood-date, .progress {
+      font-size: 0.9rem;
+      margin-top: 0.5rem;
+    }
+    footer p {
+      text-transform: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>📅 ROTINA SAGRADA DE FRANCISCO – OTIMIZAÇÃO TOTAL</h1>
+
+  <div class="tab-nav">
+    <button class="tab-button active" data-tab="daily">ROTINA DIÁRIA</button>
+    <button class="tab-button" data-tab="important">TAREFAS IMPORTANTES</button>
+  </div>
+
+  <div id="daily" class="tab-content active">
+    <div class="section">
+      <h2>🔄 REINICIAR DADOS</h2>
+      <button id="reset-data">REINICIAR TODOS OS DADOS</button>
+    </div>
+
+    <div class="section">
+      <h2>🔔 ATIVAR NOTIFICAÇÕES</h2>
+      <button id="request-notifications">ATIVAR NOTIFICAÇÕES</button>
+    </div>
+
+    <div class="section">
+      <h2>🍅 POMODORO TIMER</h2>
+      <div class="pomodoro">
+        <select id="pomodoro-duration">
+          <option value="25">25 minutos (Foco)</option>
+          <option value="20">20 minutos</option>
+          <option value="15">15 minutos</option>
+          <option value="5">5 minutos (Pausa)</option>
+        </select>
+        <span id="pomodoro-time">25:00</span>
+        <span id="pomodoro-mode">FOCO</span>
+        <button id="pomodoro-start">INICIAR</button>
+        <button id="pomodoro-pause" disabled>PAUSAR</button>
+        <button id="pomodoro-reset">REINICIAR</button>
+      </div>
+      <div class="progress" id="pomodoro-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="pomodoro-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>📅 ADICIONAR AO GOOGLE AGENDA – DAY ONE (1)</h2>
+      <div class="calendar">
+        <input type="text" id="event-title" placeholder="TÍTULO DO EVENTO">
+        <input type="text" id="event-description" placeholder="DESCRIÇÃO">
+        <input type="date" id="event-date">
+        <input type="time" id="event-start">
+        <input type="time" id="event-end">
+        <button id="add-to-calendar">ADICIONAR AO GOOGLE AGENDA</button>
+      </div>
+      <div class="progress" id="calendar-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="calendar-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>😊 MEU HUMOR HOJE</h2>
+      <div class="mood-selector">
+        <button data-mood="happy">😊</button>
+        <button data-mood="neutral">😐</button>
+        <button data-mood="sad">😥</button>
+        <button data-mood="frustrated">😣</button>
+        <button data-mood="angry">😡</button>
+      </div>
+      <div class="mood-date" id="mood-date"></div>
+      <div class="progress" id="mood-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="mood-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>💧 GARRAFAS DE ÁGUA (1,8L)</h2>
+      <div class="water-tracker">
+        <label>QUANTAS GARRAFAS BEBI HOJE: 
+          <select id="water-count">
+            <option value="0">0</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+            <option value="9">9</option>
+            <option value="10">10</option>
+          </select>
+        </label>
+      </div>
+      <div class="progress" id="water-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="water-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>✅ TO-DO LIST</h2>
+      <div class="todo-list" id="todo-list">
+        <!-- Tasks will be dynamically added here -->
+      </div>
+      <button id="add-todo">ADICIONAR TAREFA</button>
+      <div class="progress" id="todo-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="todo-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>🙏 DIÁRIO DE GRATIDÃO</h2>
+      <div class="gratitude">
+        <input type="text" id="gratitude1" placeholder="1. SOU GRATO POR...">
+        <input type="text" id="gratitude2" placeholder="2. SOU GRATO POR...">
+        <input type="text" id="gratitude3" placeholder="3. SOU GRATO POR...">
+      </div>
+      <div class="progress" id="gratitude-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="gratitude-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>🌙 ANTES DE DORMIR (PREPARAÇÃO DO DIA SEGUINTE)</h2>
+      <div class="checklist" data-section="sleep">
+        <label><input type="checkbox" id="sleep1"> SEPARAR ROUPA DE TREINO E ROUPA DO DIA SEGUINTE</label>
+        <label><input type="checkbox" id="sleep2"> SEPARAR SUPLEMENTOS DA MANHÃ E PRÉ-TREINO</label>
+        <label><input type="checkbox" id="sleep3"> DEIXAR WHEY PROTEIN JÁ MEDIDO EM COQUETELEIRA</label>
+        <label><input type="checkbox" id="sleep4"> ENCHER GARRAFA DE ÁGUA E PREPARAR ÁGUA MORNA COM SAL</label>
+        <label><input type="checkbox" id="sleep5"> SPRAY NA CAMA (CHEIRO AGRADÁVEL)</label>
+        <label><input type="checkbox" id="sleep6"> VERIFICAR COMPROMISSOS OU URGÊNCIAS</label>
+        <label><input type="checkbox" id="sleep7"> PREPARAR CENÁRIO DE GRAVAÇÃO</label>
+        <label><input type="checkbox" id="sleep8"> FIXAR SUPORTE DE PAREDES COM VÁCUO</label>
+        <label><input type="checkbox" id="sleep9"> SUBSTITUIR TOALHAS QUE SOLTAM PELO</label>
+      </div>
+      <div class="progress" id="sleep-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="sleep-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>⏰ 4H00 – ACORDAR COM PROPÓSITO</h2>
+      <div class="checklist" data-section="wake">
+        <label><input type="checkbox" id="wake1"> LEVANTAR NA HORA (SEM SONECA)</label>
+        <label><input type="checkbox" id="wake2"> ARRUMAR A CAMA E PASSAR SPRAY</label>
+        <label><input type="checkbox" id="wake3"> BEBER ÁGUA MORNA COM SAL</label>
+        <label><input type="checkbox" id="wake4"> ORAÇÃO</label>
+        <label><input type="checkbox" id="wake5"> LEITURA DA BÍBLIA E ESTUDO</label>
+        <label><input type="checkbox" id="wake6"> VISUALIZAÇÃO GUIADA (5 MIN)</label>
+      </div>
+      <div class="progress" id="wake-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="wake-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>☕ 4H30 – CAFÉ PRETO E SUPLEMENTOS + SAÍDA PRA TREINO</h2>
+      <div class="checklist" data-section="supp">
+        <label><input type="checkbox" id="supp1"> SUPLEMENTOS</label>
+        <label><input type="checkbox" id="supp2"> ALONGAMENTO RÁPIDO DE 5 MINUTOS</label>
+        <label><input type="checkbox" id="supp3"> SAIR ATÉ 4H50</label>
+      </div>
+      <div class="progress" id="supp-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="supp-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>🏋️‍♂️ 5H00 – 6H10 – ACADEMIA</h2>
+      <div class="checklist" data-section="gym">
+        <label><input type="checkbox" id="gym1"> TREINO COM FOCO EM MASSA MAGRA</label>
+        <label><input type="checkbox" id="gym2"> REGISTRAR PESOS, SÉRIES E REPETIÇÕES</label>
+        <label><input type="checkbox" id="gym3"> OUVIR ÁUDIO BINAURAL SEM LETRA</label>
+      </div>
+      <div class="progress" id="gym-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="gym-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>🛁 6H10 – 6H30 – BANHO + PREPARAÇÃO</h2>
+      <div class="checklist" data-section="bath">
+        <label><input type="checkbox" id="bath1"> BANHO COM MÚSICA DE FOCO OU EM SILÊNCIO</label>
+        <label><input type="checkbox" id="bath2"> ROUPA JÁ SEPARADA DO DIA ANTERIOR</label>
+      </div>
+      <div class="progress" id="bath-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="bath-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>🍽️ 6H30 – 7H00 – CAFÉ DA MANHÃ ESTRATÉGICO</h2>
+      <div class="checklist" data-section="breakfast">
+        <label><input type="radio" name="breakfast" id="breakfast1" value="option1"> OPÇÃO 1: 3 OVOS INTEIROS + 50G DE VEGETAIS</label>
+        <label><input type="radio" name="breakfast" id="breakfast2" value="option2"> OPÇÃO 2: SHAKE COM WHEY, BANANA, PASTA DE AMENDOIM</label>
+        <label><input type="radio" name="breakfast" id="breakfast3" value="option3"> OPÇÃO 3: 2 OVOS + PÃO + FRUTAS VERMELHAS</label>
+      </div>
+      <p>META: CALORIAS TOTAIS POR REFEIÇÃO: 300–320 KCAL</p>
+      <div class="progress" id="breakfast-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="breakfast-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>🚀 7H00 – 9H00 – EXECUÇÃO PROFUNDA: LUCRO PURO</h2>
+      <div class="checklist" data-section="work">
+        <label><input type="checkbox" id="work1"> VER 1 FUNIL POR DIA</label>
+        <label><input type="checkbox" id="work2"> AJUSTAR OFERTA</label>
+        <label><input type="checkbox" id="work3"> VER CAMPANHAS GOOGLE E FACEBOOK ADS</label>
+        <label><input type="checkbox" id="work4"> ESTUDAR CONCORRENTES</label>
+      </div>
+      <div class="progress" id="work-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="work-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>🧹 9H00 – 9H30 – RESET DA CASA + WHATSAPP</h2>
+      <div class="checklist" data-section="reset">
+        <label><input type="checkbox" id="reset1"> ARRUMAR AMBIENTE VISUAL</label>
+        <label><input type="checkbox" id="reset2"> VER LISTA DE MERCADO</label>
+        <label><input type="checkbox" id="reset3"> RESPONDER MENSAGENS IMPORTANTES</label>
+      </div>
+      <div class="progress" id="reset-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="reset-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>🌍 9H30 – 12H00 – CRIAÇÃO DE CONTEÚDO</h2>
+      <div class="checklist" data-section="content">
+        <label><input type="checkbox" id="content1"> PRODUZIR: 2 REELS + 2 POSTS POR DIA</label>
+        <label><input type="checkbox" id="content2"> CRIAR 40 CRIATIVOS POR SEMANA</label>
+        <label><input type="checkbox" id="content3"> GRAVAR 2 CURSOS POR SEMANA</label>
+      </div>
+      <div class="progress" id="content-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="content-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>🍽️ 12H00 – 13H00 – ALMOÇO</h2>
+      <p>COMIDA LIMPA, LEVE, COM PROTEÍNAS MAGRAS E VEGETAIS</p>
+      <div class="progress" id="lunch-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="lunch-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>🧼 13H00 – 13H30 – ORGANIZAÇÃO RÁPIDA</h2>
+      <div class="checklist" data-section="org">
+        <label><input type="checkbox" id="org1"> ROUPAS, LOUÇA, AJUSTES BÁSICOS</label>
+      </div>
+      <div class="progress" id="org-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="org-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>☀️ 13H30 – 14H00 – SOL NO CORPO + CONEXÃO</h2>
+      <div class="checklist" data-section="sun">
+        <label><input type="checkbox" id="sun1"> TOMAR SOL 10–15 MIN</label>
+        <label><input type="checkbox" id="sun2"> LIGAR PARA ALGUÉM IMPORTANTE</label>
+      </div>
+      <div class="progress" id="sun-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="sun-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>📚 14H00 – 15H00 – ESTUDO DE TRÁFEGO</h2>
+      <div class="checklist" data-section="study">
+        <label><input type="checkbox" id="study1"> ANALISAR CRIATIVOS, ESTRUTURA</label>
+        <label><input type="checkbox" id="study2"> ESTUDAR GOOGLE ADS, FACEBOOK ADS</label>
+      </div>
+      <div class="progress" id="study-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="study-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>📈 15H00 – 16H00 – MÉTRICAS + PENDÊNCIAS</h2>
+      <div class="checklist" data-section="metrics">
+        <label><input type="checkbox" id="metrics1"> VER TRELLO, HOTMART, MANYCHAT</label>
+        <label><input type="checkbox" id="metrics2"> DIAGNOSTICAR KPIS E SUGERIR AJUSTES</label>
+      </div>
+      <div class="progress" id="metrics-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="metrics-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>🧩 16H00 – 17H00 – FECHAMENTO DE CICLOS</h2>
+      <div class="checklist" data-section="close">
+        <label><input type="checkbox" id="close1"> ENCERRAR PENDÊNCIAS</label>
+        <label><input type="checkbox" id="close2"> COBRAR RETORNOS, REPLANEJAR</label>
+      </div>
+      <div class="progress" id="close-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="close-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>💡 17H00 – 18H00 – CRIATIVOS OU REUNIÃO</h2>
+      <div class="checklist" data-section="create">
+        <label><input type="checkbox" id="create1"> GRAVAR CONTEÚDO NOVO</label>
+        <label><input type="checkbox" id="create2"> REUNIÃO COM PAUTA</label>
+      </div>
+      <div class="progress" id="create-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="create-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>🥣 19H00 – JANTAR LEVE</h2>
+      <p>SUGESTÃO: SOPA DE OSSOS (200ML) COM LEGUMES</p>
+      <div class="progress" id="dinner-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="dinner-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>🛁 19H30 – BANHO RELAXANTE + PAZ</h2>
+      <div class="checklist" data-section="relax">
+        <label><input type="checkbox" id="relax1"> LUZ BAIXA, MÚSICA AMBIENTE OU SILÊNCIO</label>
+      </div>
+      <div class="progress" id="relax-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="relax-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>🌙 20H00 – CONVERSA + PLANEJAMENTO</h2>
+      <div class="checklist" data-section="plan">
+        <label><input type="checkbox" id="plan1"> FALAR COM ESPOSA, REVISAR AGENDA</label>
+        <label><input type="checkbox" id="plan2"> CHECAR URGÊNCIAS OU DECISÕES</label>
+      </div>
+      <div class="progress" id="plan-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="plan-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div id="important" class="tab-content">
+    <div class="section">
+      <h2>💸 PAGAMENTOS</h2>
+      <div class="important-tasks" id="payments-list">
+        <!-- Tasks will be dynamically added here -->
+      </div>
+      <button id="add-payment">ADICIONAR PAGAMENTO</button>
+      <div class="progress" id="payments-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="payments-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>👩 PEDIDOS DA ESPOSA</h2>
+      <div class="important-tasks" id="wife-list">
+        <!-- Tasks will be dynamically added here -->
+      </div>
+      <button id="add-wife-task">ADICIONAR PEDIDO</button>
+      <div class="progress" id="wife-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="wife-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>📈 TAREFAS DO PROJETO</h2>
+      <div class="important-tasks" id="project-list">
+        <!-- Tasks will be dynamically added here -->
+      </div>
+      <button id="add-project-task">ADICIONAR TAREFA</button>
+      <div class="progress" id="project-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="project-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>🤝 PENDÊNCIAS COM OUTROS</h2>
+      <div class="important-tasks" id="pending-list">
+        <!-- Tasks will be dynamically added here -->
+      </div>
+      <button id="add-pending-task">ADICIONAR PENDÊNCIA</button>
+      <div class="progress" id="pending-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="pending-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p style="text-align:center; margin-top: 2rem; font-size: 0.9rem;">Criado por Francisco Caldas • Atualizado por CRONOS</p>
+  </footer>
+
+  <script>
+    // PWA Service Worker Registration
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(err => console.error('Service Worker Error:', err));
+    }
+
+    // Tab Navigation
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+        tabContents.forEach(content => content.classList.remove('active'));
+        button.classList.add('active');
+        document.getElementById(button.dataset.tab).classList.add('active');
+      });
+    });
+
+    // Set current date in mood section
+    const moodDate = document.getElementById('mood-date');
+    const today = new Date();
+    const formattedDate = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
+    moodDate.textContent = `DATA: ${formattedDate}`;
+
+    // Reset data
+    const resetButton = document.getElementById('reset-data');
+    resetButton.addEventListener('click', () => {
+      if (confirm('TEM CERTEZA QUE DESEJA REINICIAR TODOS OS DADOS?')) {
+        localStorage.clear();
+        location.reload();
+      }
+    });
+
+    // Request notification permission
+    const requestNotifications = document.getElementById('request-notifications');
+    if ('Notification' in window) {
+      requestNotifications.addEventListener('click', () => {
+        Notification.requestPermission().then(permission => {
+          if (permission === 'granted') {
+            new Notification('NOTIFICAÇÕES ATIVADAS!');
+            requestNotifications.disabled = true;
+            localStorage.setItem('notifications', 'granted');
+          }
+        });
+      });
+      if (localStorage.getItem('notifications') === 'granted') {
+        requestNotifications.disabled = true;
+      }
+    } else {
+      requestNotifications.disabled = true;
+      requestNotifications.textContent = 'NOTIFICAÇÕES NÃO SUPORTADAS';
+    }
+
+    // Pomodoro Timer with Sounds
+    let pomodoroInterval;
+    let isRunning = false;
+    let isFocus = true;
+    let timeLeft = 25 * 60; // Default 25 minutes in seconds
+    const pomodoroTime = document.getElementById('pomodoro-time');
+    const pomodoroMode = document.getElementById('pomodoro-mode');
+    const startButton = document.getElementById('pomodoro-start');
+    const pauseButton = document.getElementById('pomodoro-pause');
+    const resetPomodoroButton = document.getElementById('pomodoro-reset');
+    const durationSelect = document.getElementById('pomodoro-duration');
+
+    // Audio for Pomodoro
+    const focusSound = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+    const breakSound = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+    const endSound = new Audio('data:audio/wav;base64,UklGRiwAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+
+    function updateTimerDisplay() {
+      const minutes = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+      const seconds = (timeLeft % 60).toString().padStart(2, '0');
+      pomodoroTime.textContent = `${minutes}:${seconds}`;
+      pomodoroMode.textContent = isFocus ? 'FOCO' : 'PAUSA';
+    }
+
+    function startPomodoro() {
+      if (!isRunning) {
+        isRunning = true;
+        startButton.disabled = true;
+        pauseButton.disabled = false;
+        focusSound.play();
+        pomodoroInterval = setInterval(() => {
+          timeLeft--;
+          updateTimerDisplay();
+          if (timeLeft <= 0) {
+            isFocus = !isFocus;
+            timeLeft = isFocus ? parseInt(durationSelect.value) * 60 : 5 * 60;
+            updateTimerDisplay();
+            endSound.play();
+            if (isFocus) focusSound.play();
+            else breakSound.play();
+            new Notification(isFocus ? 'HORA DE FOCAR!' : 'HORA DE PAUSAR!');
+          }
+        }, 1000);
+      }
+    }
+
+    function pausePomodoro() {
+      if (isRunning) {
+        isRunning = false;
+        clearInterval(pomodoroInterval);
+        startButton.disabled = false;
+        pauseButton.disabled = true;
+      }
+    }
+
+    function resetPomodoro() {
+      clearInterval(pomodoroInterval);
+      isRunning = false;
+      isFocus = true;
+      timeLeft = parseInt(durationSelect.value) * 60;
+      updateTimerDisplay();
+      startButton.disabled = false;
+      pauseButton.disabled = true;
+    }
+
+    durationSelect.addEventListener('change', () => {
+      if (!isRunning) {
+        timeLeft = parseInt(durationSelect.value) * 60;
+        updateTimerDisplay();
+      }
+    });
+
+    startButton.addEventListener('click', startPomodoro);
+    pauseButton.addEventListener('click', pausePomodoro);
+    resetPomodoroButton.addEventListener('click', resetPomodoro);
+
+    // Google Calendar Integration
+    const addToCalendar = document.getElementById('add-to-calendar');
+    addToCalendar.addEventListener('click', () => {
+      const title = document.getElementById('event-title').value;
+      const description = document.getElementById('event-description').value;
+      const date = document.getElementById('event-date').value;
+      const startTime = document.getElementById('event-start').value;
+      const endTime = document.getElementById('event-end').value;
+
+      if (title && date && startTime && endTime) {
+        const startDateTime = new Date(`${date}T${startTime}`);
+        const endDateTime = new Date(`${date}T${endTime}`);
+        const formatDate = (d) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+        const calendarUrl = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&details=${encodeURIComponent(description)}&dates=${formatDate(startDateTime)}/${formatDate(endDateTime)}`;
+        window.open(calendarUrl, '_blank');
+        localStorage.setItem('calendar-progress', '100');
+        document.getElementById('calendar-progress').textContent = 'Progresso: 100%';
+      } else {
+        alert('PREENCHA TODOS OS CAMPOS OBRIGATÓRIOS!');
+      }
+    });
+
+    // Mood selector
+    const moodButtons = document.querySelectorAll('.mood-selector button');
+    const savedMood = localStorage.getItem('selectedMood');
+    moodButtons.forEach(button => {
+      if (button.dataset.mood === savedMood) {
+        button.classList.add('selected');
+        localStorage.setItem('mood-progress', '100');
+        document.getElementById('mood-progress').textContent = 'Progresso: 100%';
+      }
+      button.addEventListener('click', () => {
+        moodButtons.forEach(btn => btn.classList.remove('selected'));
+        button.classList.add('selected');
+        localStorage.setItem('selectedMood', button.dataset.mood);
+        localStorage.setItem('mood-progress', '100');
+        document.getElementById('mood-progress').textContent = 'Progresso: 100%';
+        new Notification(`HUMOR SELECIONADO: ${button.textContent}`);
+      });
+    });
+
+    // Water tracker
+    const waterSelect = document.getElementById('water-count');
+    waterSelect.value = localStorage.getItem('waterCount') || '0';
+    waterSelect.addEventListener('change', () => {
+      localStorage.setItem('waterCount', waterSelect.value);
+      const progress = (parseInt(waterSelect.value) / 10) * 100;
+      localStorage.setItem('water-progress', progress.toFixed(0));
+      document.getElementById('water-progress').textContent = `Progresso: ${progress.toFixed(0)}%`;
+      new Notification(`GARRAFAS DE ÁGUA ATUALIZADAS: ${waterSelect.value}`);
+    });
+    if (localStorage.getItem('water-progress')) {
+      document.getElementById('water-progress').textContent = `Progresso: ${localStorage.getItem('water-progress')}%`;
+    }
+
+    // To-Do List (Dynamic)
+    const todoList = document.getElementById('todo-list');
+    const addTodoButton = document.getElementById('add-todo');
+    let todoCount = parseInt(localStorage.getItem('todoCount')) || 0;
+
+    function addTodoTask(index, text = '', checked = false) {
+      const taskDiv = document.createElement('div');
+      taskDiv.innerHTML = `
+        <label>
+          <input type="checkbox" id="todo${index}" ${checked ? 'checked' : ''}>
+          <input type="text" id="todo-text${index}" placeholder="TAREFA ${index}" value="${text}">
+        </label>
+      `;
+      todoList.appendChild(taskDiv);
+
+      const checkbox = document.getElementById(`todo${index}`);
+      const textInput = document.getElementById(`todo-text${index}`);
+
+      checkbox.addEventListener('change', () => {
+        localStorage.setItem(`todo${index}`, checkbox.checked);
+        if (checkbox.checked) {
+          const taskText = textInput.value || `TAREFA ${index}`;
+          new Notification(`TAREFA CONCLUÍDA: ${taskText}`);
+        }
+        updateTodoProgress();
+      });
+
+      textInput.addEventListener('input', () => {
+        localStorage.setItem(`todo-text${index}`, textInput.value);
+      });
+    }
+
+    function updateTodoProgress() {
+      const checkboxes = todoList.querySelectorAll('input[type="checkbox"]');
+      const total = checkboxes.length;
+      const checked = Array.from(checkboxes).filter(cb => cb.checked).length;
+      const progress = total > 0 ? (checked / total) * 100 : 0;
+      localStorage.setItem('todo-progress', progress.toFixed(0));
+      document.getElementById('todo-progress').textContent = `Progresso: ${progress.toFixed(0)}%`;
+    }
+
+    // Load saved to-do tasks
+    for (let i = 1; i <= todoCount; i++) {
+      const text = localStorage.getItem(`todo-text${i}`) || '';
+      const checked = localStorage.getItem(`todo${i}`) === 'true';
+      addTodoTask(i, text, checked);
+    }
+    updateTodoProgress();
+
+    addTodoButton.addEventListener('click', () => {
+      todoCount++;
+      localStorage.setItem('todoCount', todoCount);
+      addTodoTask(todoCount);
+      updateTodoProgress();
+    });
+
+    // Gratitude Journal
+    document.querySelectorAll('.gratitude input[type="text"]').forEach((input, index) => {
+      const savedText = localStorage.getItem(`gratitude${index + 1}`);
+      if (savedText) {
+        input.value = savedText;
+        localStorage.setItem('gratitude-progress', '100');
+        document.getElementById('gratitude-progress').textContent = 'Progresso: 100%';
+      }
+      input.addEventListener('input', () => {
+        localStorage.setItem(`gratitude${index + 1}`, input.value);
+        localStorage.setItem('gratitude-progress', '100');
+        document.getElementById('gratitude-progress').textContent = 'Progresso: 100%';
+      });
+    });
+
+    // Breakfast selection
+    const breakfastRadios = document.querySelectorAll('input[name="breakfast"]');
+    const savedBreakfast = localStorage.getItem('breakfast');
+    if (savedBreakfast) {
+      document.getElementById(`breakfast${savedBreakfast.slice(-1)}`).checked = true;
+      localStorage.setItem('breakfast-progress', '100');
+      document.getElementById('breakfast-progress').textContent = 'Progresso: 100%';
+    }
+    breakfastRadios.forEach(radio => {
+      radio.addEventListener('change', () => {
+        localStorage.setItem('breakfast', radio.value);
+        localStorage.setItem('breakfast-progress', '100');
+        document.getElementById('breakfast-progress').textContent = 'Progresso: 100%';
+        new Notification(`CAFÉ DA MANHÃ SELECIONADO: ${radio.parentElement.textContent}`);
+      });
+    });
+
+    // Checklist Progress
+    function updateChecklistProgress(section) {
+      const checkboxes = document.querySelectorAll(`.checklist[data-section="${section}"] input[type="checkbox"]`);
+      const total = checkboxes.length;
+      const checked = Array.from(checkboxes).filter(cb => cb.checked).length;
+      const progress = total > 0 ? (checked / total) * 100 : 0;
+      localStorage.setItem(`${section}-progress`, progress.toFixed(0));
+      document.getElementById(`${section}-progress`).textContent = `Progresso: ${progress.toFixed(0)}%`;
+    }
+
+    document.querySelectorAll('.checklist input[type="checkbox"]').forEach(checkbox => {
+      const section = checkbox.closest('.checklist').dataset.section;
+      const savedState = localStorage.getItem(checkbox.id);
+      if (savedState === 'true') {
+        checkbox.checked = true;
+      }
+      checkbox.addEventListener('change', () => {
+        localStorage.setItem(checkbox.id, checkbox.checked);
+        if (checkbox.checked) {
+          const taskText = checkbox.parentElement.textContent;
+          new Notification(`TAREFA CONCLUÍDA: ${taskText}`);
+        }
+        updateChecklistProgress(section);
+      });
+      updateChecklistProgress(section);
+    });
+
+    // Obstacles Textareas
+    document.querySelectorAll('.obstacles textarea').forEach(textarea => {
+      const savedText = localStorage.getItem(textarea.id);
+      if (savedText) textarea.value = savedText;
+      textarea.addEventListener('input', () => {
+        localStorage.setItem(textarea.id, textarea.value);
+      });
+    });
+
+    // Important Tasks (Dynamic Lists)
+    const importantSections = ['payments', 'wife', 'project', 'pending'];
+    importantSections.forEach(section => {
+      const list = document.getElementById(`${section}-list`);
+      const addButton = document.getElementById(`add-${section}-task`);
+      let taskCount = parseInt(localStorage.getItem(`${section}Count`)) || 0;
+
+      function addImportantTask(index, text = '', checked = false) {
+        const taskDiv = document.createElement('div');
+        taskDiv.innerHTML = `
+          <label>
+            <input type="checkbox" id="${section}${index}" ${checked ? 'checked' : ''}>
+            <input type="text" id="${section}-text${index}" placeholder="${section.toUpperCase()} ${index}" value="${text}">
+          </label>
+        `;
+        list.appendChild(taskDiv);
+
+        const checkbox = document.getElementById(`${section}${index}`);
+        const textInput = document.getElementById(`${section}-text${index}`);
+
+        checkbox.addEventListener('change', () => {
+          localStorage.setItem(`${section}${index}`, checkbox.checked);
+          if (checkbox.checked) {
+            const taskText = textInput.value || `${section.toUpperCase()} ${index}`;
+            new Notification(`${section.toUpperCase()} CONCLUÍDO: ${taskText}`);
+          }
+          updateImportantProgress(section);
+        });
+
+        textInput.addEventListener('input', () => {
+          localStorage.setItem(`${section}-text${index}`, textInput.value);
+        });
+      }
+
+      function updateImportantProgress(section) {
+        const checkboxes = list.querySelectorAll('input[type="checkbox"]');
+        const total = checkboxes.length;
+        const checked = Array.from(checkboxes).filter(cb => cb.checked).length;
+        const progress = total > 0 ? (checked / total) * 100 : 0;
+        localStorage.setItem(`${section}-progress`, progress.toFixed(0));
+        document.getElementById(`${section}-progress`).textContent = `Progresso: ${progress.toFixed(0)}%`;
+      }
+
+      // Load saved tasks
+      for (let i = 1; i <= taskCount; i++) {
+        const text = localStorage.getItem(`${section}-text${i}`) || '';
+        const checked = localStorage.getItem(`${section}${i}`) === 'true';
+        addImportantTask(i, text, checked);
+      }
+      updateImportantProgress(section);
+
+      addButton.addEventListener('click', () => {
+        taskCount++;
+        localStorage.setItem(`${section}Count`, taskCount);
+        addImportantTask(taskCount);
+        updateImportantProgress(section);
+      });
+    });
+  </script>
+</body>
+</html>
