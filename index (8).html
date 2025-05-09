@@ -1,4 +1,43 @@
-<!DOCTYPE html>
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -23,19 +62,19 @@
       text-shadow: 0 1px 2px rgba(0,0,0,0.3);
     }
     nav {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
       gap: 0.5rem;
       padding: 1rem;
       background: linear-gradient(180deg, #2a2a2a, #1a1a1a);
       border-radius: 15px;
       margin-bottom: 1rem;
-      max-height: 200px;
-      overflow-y: auto;
     }
     nav a {
-      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
       width: 60px;
       height: 60px;
       background: #333333;
@@ -47,10 +86,6 @@
       transition: transform 0.2s, background 0.2s;
       text-align: center;
       line-height: 1.2;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
     }
     nav a span.emoji {
       font-size: 1.5rem;
@@ -324,7 +359,6 @@
       min-height: 100px;
     }
   </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
   <h1>📅 ROTINA SAGRADA DE FRANCISCO – OTIMIZAÇÃO TOTAL</h1>
@@ -402,7 +436,6 @@
         <button id="pomodoro-pause" disabled>PAUSAR</button>
         <button id="pomodoro-reset">REINICIAR</button>
       </div>
-      <p id="pomodoro-sessions">Sessões Concluídas: 0</p>
       <div class="progress" id="pomodoro-progress">Progresso: 0%</div>
       <div class="obstacles">
         <textarea id="pomodoro-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
@@ -450,10 +483,6 @@
 
     <div class="section" id="todo">
       <h2>✅ TO-DO LIST</h2>
-      <div>
-        <input type="file" id="import-xlsx" accept=".xlsx" />
-        <button onclick="importarXlsx()">Importar Tarefas</button>
-      </div>
       <div class="todo-list" id="todo-list"></div>
       <div class="todo-buttons">
         <button class="todo-button" id="add-todo" title="Adicionar Tarefa">➕</button>
@@ -620,9 +649,6 @@
     <div class="section" id="lunch">
       <h2>🍽️ 12H00 – 13H00 – ALMOÇO</h2>
       <p>COMIDA LIMPA, LEVE, COM PROTEÍNAS MAGRAS E VEGETAIS</p>
-      <div class="checklist" data-section="lunch">
-        <label><input type="checkbox" id="lunch1"> Almoço Concluído</label>
-      </div>
       <div class="progress" id="lunch-progress">Progresso: 0%</div>
       <div class="obstacles">
         <textarea id="lunch-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
@@ -710,9 +736,6 @@
     <div class="section" id="dinner">
       <h2>🥣 19H00 – JANTAR LEVE</h2>
       <p>SUGESTÃO: SOPA DE OSSOS (200ML) COM LEGUMES</p>
-      <div class="checklist" data-section="dinner">
-        <label><input type="checkbox" id="dinner1"> Jantar Concluído</label>
-      </div>
       <div class="progress" id="dinner-progress">Progresso: 0%</div>
       <div class="obstacles">
         <textarea id="dinner-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
@@ -749,7 +772,6 @@
       <h2>📝 CAIXA DE CORREÇÃO</h2>
       <p>Copie o texto abaixo para enviar ao ChatGPT com o prompt: "Analise meus obstáculos do dia e sugira como posso melhorar para o próximo dia, evitando os mesmos erros."</p>
       <textarea id="corrections-box" readonly placeholder="Os obstáculos enviados aparecerão aqui..."></textarea>
-      <button onclick="copiarCorrecoes()">Copiar Texto</button>
     </div>
   </div>
 
@@ -819,42 +841,8 @@
   </footer>
 
   <script>
-    // Variáveis para XLSX
-    var gk_isXlsx = false;
-    var gk_xlsxFileLookup = {};
-    var gk_fileData = {};
-
-    function filledCell(cell) {
-      return cell !== '' && cell != null;
-    }
-
-    function loadFileData(filename) {
-      if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-        try {
-          var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-          var firstSheetName = workbook.SheetNames[0];
-          var worksheet = workbook.Sheets[firstSheetName];
-          var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-          var filteredData = jsonData.filter(row => row.some(filledCell));
-          var headerRowIndex = filteredData.findIndex((row, index) =>
-            row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-          );
-          if (headerRowIndex === -1 || headerRowIndex > 25) {
-            headerRowIndex = 0;
-          }
-          var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex));
-          csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-          return csv;
-        } catch (e) {
-          console.error(e);
-          return "";
-        }
-      }
-      return gk_fileData[filename] || "";
-    }
-
     document.addEventListener('DOMContentLoaded', () => {
-      // Navegação por abas
+      // Tab Navigation
       const tabButtons = document.querySelectorAll('.tab-button');
       const tabContents = document.querySelectorAll('.tab-content');
       tabButtons.forEach(button => {
@@ -866,7 +854,7 @@
         });
       });
 
-      // Data atual na seção de humor
+      // Set current date in mood section
       const moodDate = document.getElementById('mood-date');
       if (moodDate) {
         const today = new Date();
@@ -874,7 +862,7 @@
         moodDate.textContent = `DATA: ${formattedDate}`;
       }
 
-      // Reset de dados
+      // Reset data (unified for both tabs)
       const resetButton = document.getElementById('reset-data');
       if (resetButton) {
         resetButton.addEventListener('click', () => {
@@ -885,20 +873,21 @@
         });
       }
 
-      // Temporizador Pomodoro
+      // Pomodoro Timer
       let pomodoroInterval;
       let isRunning = false;
       let isFocus = true;
       let timeLeft = 25 * 60;
-      let pomodoroSessions = parseInt(localStorage.getItem('pomodoroSessions')) || 0;
       const pomodoroTime = document.getElementById('pomodoro-time');
       const pomodoroMode = document.getElementById('pomodoro-mode');
       const startButton = document.getElementById('pomodoro-start');
       const pauseButton = document.getElementById('pomodoro-pause');
       const resetPomodoroButton = document.getElementById('pomodoro-reset');
       const durationSelect = document.getElementById('pomodoro-duration');
-      const sessionsDisplay = document.getElementById('pomodoro-sessions');
-      if (sessionsDisplay) sessionsDisplay.textContent = `Sessões Concluídas: ${pomodoroSessions}`;
+
+      const focusSound = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+      const breakSound = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+      const endSound = new Audio('data:audio/wav;base64,UklGRiwAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
 
       function updateTimerDisplay() {
         if (pomodoroTime && pomodoroMode) {
@@ -914,19 +903,17 @@
           isRunning = true;
           if (startButton) startButton.disabled = true;
           if (pauseButton) pauseButton.disabled = false;
+          focusSound.play();
           pomodoroInterval = setInterval(() => {
             timeLeft--;
             updateTimerDisplay();
             if (timeLeft <= 0) {
               isFocus = !isFocus;
-              if (isFocus) {
-                pomodoroSessions++;
-                localStorage.setItem('pomodoroSessions', pomodoroSessions);
-                if (sessionsDisplay) sessionsDisplay.textContent = `Sessões Concluídas: ${pomodoroSessions}`;
-                new Notification(`Sessão ${pomodoroSessions} concluída!`);
-              }
               timeLeft = isFocus ? parseInt(durationSelect.value) * 60 : 5 * 60;
               updateTimerDisplay();
+              endSound.play();
+              if (isFocus) focusSound.play();
+              else breakSound.play();
               new Notification(isFocus ? 'HORA DE FOCAR!' : 'HORA DE PAUSAR!');
             }
           }, 1000);
@@ -947,12 +934,9 @@
         isRunning = false;
         isFocus = true;
         timeLeft = parseInt(durationSelect.value) * 60;
-        pomodoroSessions = 0;
-        localStorage.setItem('pomodoroSessions', pomodoroSessions);
         updateTimerDisplay();
         if (startButton) startButton.disabled = false;
         if (pauseButton) pauseButton.disabled = true;
-        if (sessionsDisplay) sessionsDisplay.textContent = `Sessões Concluídas: ${pomodoroSessions}`;
       }
 
       if (durationSelect) {
@@ -964,11 +948,17 @@
         });
       }
 
-      if (startButton) startButton.addEventListener('click', startPomodoro);
-      if (pauseButton) pauseButton.addEventListener('click', pausePomodoro);
-      if (resetPomodoroButton) resetPomodoroButton.addEventListener('click', resetPomodoro);
+      if (startButton) {
+        startButton.addEventListener('click', startPomodoro);
+      }
+      if (pauseButton) {
+        pauseButton.addEventListener('click', pausePomodoro);
+      }
+      if (resetPomodoroButton) {
+        resetPomodoroButton.addEventListener('click', resetPomodoro);
+      }
 
-      // Seletor de Humor
+      // Mood selector
       const moodButtons = document.querySelectorAll('.mood-selector button');
       const savedMood = localStorage.getItem('selectedMood');
       moodButtons.forEach(button => {
@@ -989,19 +979,14 @@
         });
       });
 
-      // Rastreador de Água
-      const today = new Date().toISOString().split('T')[0];
-      let waterDate = localStorage.getItem('waterDate') || today;
-      if (waterDate !== today) {
-        localStorage.setItem('waterTotal', 0);
-        localStorage.setItem('waterHistory', JSON.stringify([]));
-        localStorage.setItem('waterDate', today);
-      }
+      // Water tracker
       let waterTotal = parseInt(localStorage.getItem('waterTotal')) || 0;
       let waterHistory = JSON.parse(localStorage.getItem('waterHistory')) || [];
       const waterTotalDisplay = document.getElementById('water-total');
       const waterLevel = document.getElementById('water-level');
-      if (waterTotalDisplay) waterTotalDisplay.textContent = `VOCÊ BEBEU ${waterTotal}ML HOJE`;
+      if (waterTotalDisplay) {
+        waterTotalDisplay.textContent = `VOCÊ BEBEU ${waterTotal}ML HOJE`;
+      }
       updateWaterLevel();
 
       window.addWater = function(amount) {
@@ -1009,7 +994,9 @@
         waterHistory.push(amount);
         localStorage.setItem('waterTotal', waterTotal);
         localStorage.setItem('waterHistory', JSON.stringify(waterHistory));
-        if (waterTotalDisplay) waterTotalDisplay.textContent = `VOCÊ BEBEU ${waterTotal}ML HOJE`;
+        if (waterTotalDisplay) {
+          waterTotalDisplay.textContent = `VOCÊ BEBEU ${waterTotal}ML HOJE`;
+        }
         updateWaterLevel();
         new Notification(`Adicionado ${amount}ml de água!`);
       };
@@ -1020,7 +1007,9 @@
           waterTotal = Math.max(0, waterTotal - lastAmount);
           localStorage.setItem('waterTotal', waterTotal);
           localStorage.setItem('waterHistory', JSON.stringify(waterHistory));
-          if (waterTotalDisplay) waterTotalDisplay.textContent = `VOCÊ BEBEU ${waterTotal}ML HOJE`;
+          if (waterTotalDisplay) {
+            waterTotalDisplay.textContent = `VOCÊ BEBEU ${waterTotal}ML HOJE`;
+          }
           updateWaterLevel();
           new Notification(`Removido ${lastAmount}ml de água!`);
         } else {
@@ -1031,10 +1020,12 @@
       function updateWaterLevel() {
         const maxWater = 4000;
         const width = Math.min((waterTotal / maxWater) * 200, 200);
-        if (waterLevel) waterLevel.setAttribute('width', width);
+        if (waterLevel) {
+          waterLevel.setAttribute('width', width);
+        }
       }
 
-      // Lista de Tarefas
+      // To-Do List
       const todoList = document.getElementById('todo-list');
       const addTodoButton = document.getElementById('add-todo');
       const sendTodoButton = document.getElementById('send-todo');
@@ -1082,26 +1073,49 @@
           });
         }
 
-        if (textInput) textInput.addEventListener('input', () => localStorage.setItem(`todo-text${index}`, textInput.value));
-        if (dateInput) dateInput.addEventListener('input', () => localStorage.setItem(`todo-date${index}`, dateInput.value));
-        if (timeInput) timeInput.addEventListener('input', () => localStorage.setItem(`todo-time${index}`, timeInput.value));
-        if (destinationSelect) destinationSelect.addEventListener('change', () => localStorage.setItem(`todo-destination${index}`, destinationSelect.value));
+        if (textInput) {
+          textInput.addEventListener('input', () => {
+            localStorage.setItem(`todo-text${index}`, textInput.value);
+          });
+        }
+
+        if (dateInput) {
+          dateInput.addEventListener('input', () => {
+            localStorage.setItem(`todo-date${index}`, dateInput.value);
+          });
+        }
+
+        if (timeInput) {
+          timeInput.addEventListener('input', () => {
+            localStorage.setItem(`todo-time${index}`, timeInput.value);
+          });
+        }
+
+        if (destinationSelect) {
+          destinationSelect.addEventListener('change', () => {
+            localStorage.setItem(`todo-destination${index}`, destinationSelect.value);
+          });
+        }
       }
 
       function deleteTodoTask(index) {
         const taskDiv = document.getElementById(`todo-task${index}`);
-        if (taskDiv) taskDiv.remove();
-        localStorage.removeItem(`todo${index}`);
-        localStorage.removeItem(`todo-text${index}`);
-        localStorage.removeItem(`todo-date${index}`);
-        localStorage.removeItem(`todo-time${index}`);
-        localStorage.removeItem(`todo-destination${index}`);
-        updateTodoProgress();
+        if (taskDiv) {
+          taskDiv.remove();
+          localStorage.removeItem(`todo${index}`);
+          localStorage.removeItem(`todo-text${index}`);
+          localStorage.removeItem(`todo-date${index}`);
+          localStorage.removeItem(`todo-time${index}`);
+          localStorage.removeItem(`todo-destination${index}`);
+          updateTodoProgress();
+        }
       }
 
       function deleteAllTodoTasks() {
         if (confirm('Apagar todas as tarefas do To-Do List?')) {
-          for (let i = 1; i <= todoCount; i++) deleteTodoTask(i);
+          for (let i = 1; i <= todoCount; i++) {
+            deleteTodoTask(i);
+          }
           todoCount = 0;
           localStorage.setItem('todoCount', todoCount);
           updateTodoProgress();
@@ -1152,7 +1166,12 @@
             });
           }
 
-          if (textInput) textInput.addEventListener('input', () => localStorage.setItem(`${section}-text${taskCount}`, textInput.value));
+          if (textInput) {
+            textInput.addEventListener('input', () => {
+              localStorage.setItem(`${section}-text${taskCount}`, textInput.value);
+            });
+          }
+
           localStorage.setItem(`${section}-text${taskCount}`, text);
           window.updateImportantProgress(section);
           deleteTodoTask(index);
@@ -1162,9 +1181,13 @@
       function sendAllTasks() {
         const tasksToProcess = [];
         for (let i = 1; i <= todoCount; i++) {
-          if (document.getElementById(`todo-task${i}`)) tasksToProcess.push(i);
+          if (document.getElementById(`todo-task${i}`)) {
+            tasksToProcess.push(i);
+          }
         }
-        tasksToProcess.forEach(index => handleTaskDestination(index));
+        tasksToProcess.forEach(index => {
+          handleTaskDestination(index);
+        });
         todoCount = Math.max(0, todoCount - tasksToProcess.length);
         localStorage.setItem('todoCount', todoCount);
         updateTodoProgress();
@@ -1178,7 +1201,9 @@
         const progress = total > 0 ? (checked / total) * 100 : 0;
         localStorage.setItem('todo-progress', progress.toFixed(0));
         const todoProgress = document.getElementById('todo-progress');
-        if (todoProgress) todoProgress.textContent = `Progresso: ${progress.toFixed(0)}%`;
+        if (todoProgress) {
+          todoProgress.textContent = `Progresso: ${progress.toFixed(0)}%`;
+        }
       }
 
       for (let i = 1; i <= todoCount; i++) {
@@ -1187,21 +1212,30 @@
         const time = localStorage.getItem(`todo-time${i}`) || '';
         const destination = localStorage.getItem(`todo-destination${i}`) || 'calendar';
         const checked = localStorage.getItem(`todo${i}`) === 'true';
-        if (text || date || time || checked) addTodoTask(i, text, date, time, destination, checked);
+        if (text || date || time || checked) {
+          addTodoTask(i, text, date, time, destination, checked);
+        }
       }
       updateTodoProgress();
 
-      if (addTodoButton) addTodoButton.addEventListener('click', () => {
-        todoCount++;
-        localStorage.setItem('todoCount', todoCount);
-        addTodoTask(todoCount);
-        updateTodoProgress();
-      });
+      if (addTodoButton) {
+        addTodoButton.addEventListener('click', () => {
+          todoCount++;
+          localStorage.setItem('todoCount', todoCount);
+          addTodoTask(todoCount);
+          updateTodoProgress();
+        });
+      }
 
-      if (sendTodoButton) sendTodoButton.addEventListener('click', sendAllTasks);
-      if (deleteTodoButton) deleteTodoButton.addEventListener('click', deleteAllTodoTasks);
+      if (sendTodoButton) {
+        sendTodoButton.addEventListener('click', sendAllTasks);
+      }
 
-      // Diário de Gratidão
+      if (deleteTodoButton) {
+        deleteTodoButton.addEventListener('click', deleteAllTodoTasks);
+      }
+
+      // Gratitude Journal
       document.querySelectorAll('.gratitude input[type="text"]').forEach((input, index) => {
         const savedText = localStorage.getItem(`gratitude${index + 1}`);
         if (savedText) {
@@ -1218,7 +1252,7 @@
         });
       });
 
-      // Seleção de Café da Manhã
+      // Breakfast selection
       const breakfastRadios = document.querySelectorAll('input[name="breakfast"]');
       const savedBreakfast = localStorage.getItem('breakfast');
       if (savedBreakfast) {
@@ -1238,7 +1272,7 @@
         });
       });
 
-      // Progresso das Checklists
+      // Checklist Progress
       function updateChecklistProgress(section) {
         const checkboxes = document.querySelectorAll(`.checklist[data-section="${section}"] input[type="checkbox"]`);
         const total = checkboxes.length;
@@ -1246,13 +1280,17 @@
         const progress = total > 0 ? (checked / total) * 100 : 0;
         localStorage.setItem(`${section}-progress`, progress.toFixed(0));
         const sectionProgress = document.getElementById(`${section}-progress`);
-        if (sectionProgress) sectionProgress.textContent = `Progresso: ${progress.toFixed(0)}%`;
+        if (sectionProgress) {
+          sectionProgress.textContent = `Progresso: ${progress.toFixed(0)}%`;
+        }
       }
 
       document.querySelectorAll('.checklist input[type="checkbox"]').forEach(checkbox => {
         const section = checkbox.closest('.checklist').dataset.section;
         const savedState = localStorage.getItem(checkbox.id);
-        if (savedState === 'true') checkbox.checked = true;
+        if (savedState === 'true') {
+          checkbox.checked = true;
+        }
         checkbox.addEventListener('change', () => {
           localStorage.setItem(checkbox.id, checkbox.checked);
           if (checkbox.checked && checkbox.id === 'pumps-jacuzzi') {
@@ -1271,8 +1309,10 @@
             window.open(`x-apple-reminder://?title=Desligar Bomba Piscina&dueDateTime=${formattedTime}`, '_blank');
             setTimeout(() => new Notification('Desligar bomba da Piscina (8h)'), 8 * 60 * 60 * 1000);
           }
-          if (checkbox.checked && checkbox.id === 'pumps-off') new Notification('Bombas desligadas!');
-          if (checkbox.checked && !['pumps-jacuzzi', 'pumps-piscina', 'pumps-off'].includes(checkbox.id)) {
+          if (checkbox.checked && checkbox.id === 'pumps-off') {
+            new Notification('Bombas desligadas!');
+          }
+          if (checkbox.checked && checkbox.id !== 'pumps-jacuzzi' && checkbox.id !== 'pumps-piscina' && checkbox.id !== 'pumps-off') {
             const taskText = checkbox.parentElement.textContent;
             new Notification(`TAREFA CONCLUÍDA: ${taskText}`);
           }
@@ -1281,10 +1321,13 @@
         updateChecklistProgress(section);
       });
 
-      // Caixa de Correção e Obstáculos
+      // Obstacles Textareas and Corrections Box
       const correctionsBox = document.getElementById('corrections-box');
       let correctionsText = localStorage.getItem('corrections') || '';
-      if (correctionsBox) correctionsBox.value = correctionsText;
+
+      if (correctionsBox) {
+        correctionsBox.value = correctionsText;
+      }
 
       function sendObstacles(textareaId) {
         const textarea = document.getElementById(textareaId);
@@ -1292,9 +1335,14 @@
           const sectionTitle = textarea.closest('.section').querySelector('h2').textContent;
           const obstacleText = textarea.value.trim();
           const entry = `${sectionTitle}:\n${obstacleText}\n\n`;
+          
           correctionsText = correctionsText ? correctionsText + entry : entry;
           localStorage.setItem('corrections', correctionsText);
-          if (correctionsBox) correctionsBox.value = correctionsText;
+          
+          if (correctionsBox) {
+            correctionsBox.value = correctionsText;
+          }
+          
           textarea.value = '';
           localStorage.setItem(textareaId, '');
           new Notification('Obstáculo enviado para a Caixa de Correção!');
@@ -1306,12 +1354,14 @@
       document.querySelectorAll('.obstacles textarea').forEach(textarea => {
         const savedText = localStorage.getItem(textarea.id);
         if (savedText) textarea.value = savedText;
-        textarea.addEventListener('input', () => localStorage.setItem(textarea.id, textarea.value));
+        textarea.addEventListener('input', () => {
+          localStorage.setItem(textarea.id, textarea.value);
+        });
       });
 
       window.sendObstacles = sendObstacles;
 
-      // Tarefas Importantes
+      // Important Tasks
       const taskSections = ['payments', 'wife', 'project', 'pending', 'personal'];
       taskSections.forEach(section => {
         const list = document.getElementById(`${section}-list`);
@@ -1344,7 +1394,11 @@
             });
           }
 
-          if (textInput) textInput.addEventListener('input', () => localStorage.setItem(`${section}-text${index}`, textInput.value));
+          if (textInput) {
+            textInput.addEventListener('input', () => {
+              localStorage.setItem(`${section}-text${index}`, textInput.value);
+            });
+          }
         }
 
         window.deleteTask = function(section, index) {
@@ -1366,7 +1420,9 @@
           const progress = total > 0 ? (checked / total) * 100 : 0;
           localStorage.setItem(`${section}-progress`, progress.toFixed(0));
           const sectionProgress = document.getElementById(`${section}-progress`);
-          if (sectionProgress) sectionProgress.textContent = `Progresso: ${progress.toFixed(0)}%`;
+          if (sectionProgress) {
+            sectionProgress.textContent = `Progresso: ${progress.toFixed(0)}%`;
+          }
         };
 
         for (let i = 1; i <= taskCount; i++) {
@@ -1376,21 +1432,16 @@
         }
         window.updateImportantProgress(section);
 
-        if (addButton) addButton.addEventListener('click', () => {
-          taskCount++;
-          localStorage.setItem(`${section}Count`, taskCount);
-          addImportantTask(taskCount);
-          window.updateImportantProgress(section);
-        });
-      });
-
-      // Importar Tarefas de XLSX
-      window.importarXlsx = function() {
-        const inputArquivo = document.getElementById('import-xlsx');
-        const arquivo = inputArquivo.files[0];
-        if (!arquivo) {
-          new Notification('Selecione um arquivo XLSX!');
-          return;
+        if (addButton) {
+          addButton.addEventListener('click', () => {
+            taskCount++;
+            localStorage.setItem(`${section}Count`, taskCount);
+            addImportantTask(taskCount);
+            window.updateImportantProgress(section);
+          });
         }
-
-        const leitor =
+      });
+    });
+  </script>
+</body>
+</html>
