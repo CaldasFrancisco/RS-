@@ -1,0 +1,1447 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#121212">
+  <meta name="description" content="TEMPLATE INTERATIVO – ROTINA SAGRADA DE FRANCISCO">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <title>ROTINA SAGRADA</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 1rem;
+      background: linear-gradient(180deg, #1a1a1a, #121212);
+      color: #FFFFFF;
+      text-transform: uppercase;
+    }
+    h1, h2 {
+      color: #FFFFFF;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+    nav {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5rem;
+      padding: 1rem;
+      background: linear-gradient(180deg, #2a2a2a, #1a1a1a);
+      border-radius: 15px;
+      margin-bottom: 1rem;
+    }
+    nav a {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 60px;
+      height: 60px;
+      background: #333333;
+      color: #FFFFFF;
+      text-decoration: none;
+      border-radius: 12px;
+      font-size: 0.7rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+      transition: transform 0.2s, background 0.2s;
+      text-align: center;
+      line-height: 1.2;
+    }
+    nav a span.emoji {
+      font-size: 1.5rem;
+      margin-bottom: 0.2rem;
+    }
+    nav a:hover {
+      transform: scale(1.1);
+      background: #1E88E5;
+    }
+    .tab-nav {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      overflow-x: auto;
+    }
+    .tab-nav button {
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      border: none;
+      background: #333333;
+      color: #FFFFFF;
+      cursor: pointer;
+      border-radius: 10px;
+      transition: background 0.2s;
+    }
+    .tab-nav button.active {
+      background: #1E88E5;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .section {
+      background: linear-gradient(180deg, #3a3a3a, #333333);
+      padding: 1rem 1.5rem;
+      margin: 1rem 0;
+      border-radius: 15px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+    .reset-section {
+      background: linear-gradient(180deg, #3a3a3a, #333333);
+      padding: 1rem 1.5rem;
+      margin: 1rem 0;
+      border-radius: 15px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      text-align: center;
+    }
+    .checklist label {
+      display: block;
+      margin-bottom: 0.75rem;
+      font-size: 1rem;
+    }
+    input[type="checkbox"], input[type="radio"] {
+      margin-right: 0.5rem;
+      accent-color: #1E88E5;
+    }
+    p, ul {
+      margin: 0.5rem 0;
+      font-size: 1rem;
+    }
+    .mood-selector {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .mood-selector button {
+      font-size: 1.5rem;
+      padding: 0.5rem;
+      border: none;
+      background: #444444;
+      cursor: pointer;
+      border-radius: 10px;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .mood-selector button:hover {
+      transform: scale(1.1);
+      background: #555555;
+    }
+    .mood-selector button.selected {
+      background: #1E88E5;
+    }
+    .water-tracker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .water-tracker button {
+      width: 60px;
+      height: 60px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #555555, #444444);
+      color: #FFFFFF;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+      transition: transform 0.2s, background 0.2s;
+    }
+    .water-tracker button:hover {
+      transform: scale(1.1);
+      background: linear-gradient(180deg, #666666, #555555);
+    }
+    .water-tracker button.delete {
+      background: linear-gradient(180deg, #D81B60, #B71C1C);
+    }
+    .water-tracker button.delete:hover {
+      background: linear-gradient(180deg, #E91E63, #C2185B);
+    }
+    .water-tracker svg {
+      margin-top: 0.5rem;
+    }
+    .todo-list input[type="text"], .gratitude input[type="text"], .obstacles input[type="text"], .important-tasks input[type="text"], .todo-list select, .todo-list input[type="date"], .todo-list input[type="time"] {
+      width: calc(100% - 2rem);
+      padding: 0.5rem;
+      margin: 0.5rem 0;
+      border: 1px solid #FFFFFF;
+      border-radius: 10px;
+      background: #444444;
+      color: #FFFFFF;
+      text-transform: uppercase;
+    }
+    .todo-list div.task {
+      background: #444444;
+      padding: 0.5rem;
+      margin: 0.5rem 0;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .todo-buttons {
+      display: flex;
+      gap: 1rem;
+      justify-content: flex-start;
+      margin: 0.5rem 0;
+    }
+    .todo-button, .add-task-button {
+      width: 60px;
+      height: 60px;
+      font-size: 2rem;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #555555, #444444);
+      color: #FFFFFF;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+      transition: transform 0.2s, background 0.2s;
+    }
+    .todo-button:hover, .add-task-button:hover {
+      transform: scale(1.1);
+      background: linear-gradient(180deg, #666666, #555555);
+    }
+    .todo-button.delete {
+      background: linear-gradient(180deg, #D81B60, #B71C1C);
+    }
+    .todo-button.delete:hover {
+      background: linear-gradient(180deg, #E91E63, #C2185B);
+    }
+    .obstacles textarea {
+      resize: vertical;
+      min-height: 60px;
+      width: calc(100% - 2rem);
+      padding: 0.5rem;
+      margin: 0.5rem 0;
+      border: 1px solid #FFFFFF;
+      border-radius: 10px;
+      background: #444444;
+      color: #FFFFFF;
+      text-transform: uppercase;
+    }
+    .obstacles button {
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      color: #FFFFFF;
+      text-transform: uppercase;
+      transition: transform 0.2s, background 0.2s;
+      background: #1E88E5;
+      margin-top: 0.5rem;
+    }
+    .obstacles button:hover {
+      transform: scale(1.05);
+    }
+    .pomodoro {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .pomodoro button {
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      color: #FFFFFF;
+      text-transform: uppercase;
+      transition: transform 0.2s, background 0.2s;
+      background: #1E88E5;
+    }
+    .pomodoro button:hover {
+      transform: scale(1.05);
+    }
+    .pomodoro button:disabled {
+      background: #555555;
+    }
+    #reset-data {
+      width: 40px;
+      height: 40px;
+      font-size: 1.5rem;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: #000000;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s;
+      margin: 0 auto;
+    }
+    #reset-data:hover {
+      transform: scale(1.1);
+    }
+    .important-tasks button {
+      background: #2E7D32;
+    }
+    .important-tasks button.delete {
+      background: #D81B60;
+      padding: 0.3rem;
+    }
+    .pomodoro span {
+      font-size: 1.2rem;
+    }
+    .mood-date, .progress {
+      font-size: 0.9rem;
+      margin-top: 0.5rem;
+    }
+    footer p {
+      text-transform: none;
+    }
+    .important-tasks div {
+      background: #444444;
+      padding: 0.5rem;
+      margin: 0.5rem 0;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    #corrections-box {
+      width: calc(100% - 2rem);
+      padding: 0.5rem;
+      margin: 0.5rem 0;
+      border: 1px solid #FFFFFF;
+      border-radius: 10px;
+      background: #444444;
+      color: #FFFFFF;
+      text-transform: uppercase;
+      resize: vertical;
+      min-height: 100px;
+    }
+  </style>
+</head>
+<body>
+  <h1>📅 ROTINA SAGRADA DE FRANCISCO – OTIMIZAÇÃO TOTAL</h1>
+
+  <nav>
+    <a href="#pumps"><span class="emoji">🔧</span>Bombas</a>
+    <a href="#reset-data"><span class="emoji">🔄</span>Reiniciar</a>
+    <a href="#pomodoro"><span class="emoji">🍅</span>Pomodoro</a>
+    <a href="#mood"><span class="emoji">😊</span>Humor</a>
+    <a href="#water"><span class="emoji">💧</span>Água</a>
+    <a href="#todo"><span class="emoji">✅</span>To-Do</a>
+    <a href="#gratitude"><span class="emoji">🙏</span>Gratidão</a>
+    <a href="#sleep"><span class="emoji">🌙</span>Dormir</a>
+    <a href="#wake"><span class="emoji">⏰</span>Acordar</a>
+    <a href="#supp"><span class="emoji">☕</span>Suplem.</a>
+    <a href="#gym"><span class="emoji">🏋️‍♂️</span>Academia</a>
+    <a href="#bath"><span class="emoji">🛁</span>Banho</a>
+    <a href="#breakfast"><span class="emoji">🍽️</span>Café</a>
+    <a href="#work"><span class="emoji">🚀</span>Execução</a>
+    <a href="#reset"><span class="emoji">🧹</span>Reset</a>
+    <a href="#content"><span class="emoji">🌍</span>Conteúdo</a>
+    <a href="#lunch"><span class="emoji">🍽️</span>Almoço</a>
+    <a href="#org"><span class="emoji">🧼</span>Org.</a>
+    <a href="#sun"><span class="emoji">☀️</span>Sol</a>
+    <a href="#study"><span class="emoji">📚</span>Estudo</a>
+    <a href="#metrics"><span class="emoji">📈</span>Métricas</a>
+    <a href="#close"><span class="emoji">🧩</span>Fechamento</a>
+    <a href="#create"><span class="emoji">💡</span>Criativos</a>
+    <a href="#dinner"><span class="emoji">🥣</span>Jantar</a>
+    <a href="#relax"><span class="emoji">🛁</span>Relax</a>
+    <a href="#plan"><span class="emoji">🌙</span>Plan.</a>
+    <a href="#payments"><span class="emoji">💸</span>Pagtos.</a>
+    <a href="#wife"><span class="emoji">👩</span>Esposa</a>
+    <a href="#project"><span class="emoji">📈</span>Projeto</a>
+    <a href="#pending"><span class="emoji">🤝</span>Pend.</a>
+    <a href="#personal"><span class="emoji">👤</span>Pessoal</a>
+  </nav>
+
+  <div class="tab-nav">
+    <button class="tab-button active" data-tab="daily">ROTINA DIÁRIA</button>
+    <button class="tab-button" data-tab="important">TAREFAS IMPORTANTES</button>
+  </div>
+
+  <div id="daily" class="tab-content active">
+    <div class="reset-section" id="reset-data-section">
+      <button id="reset-data">🔄</button>
+    </div>
+
+    <div class="section" id="pumps">
+      <h2>🔧 LIGAR BOMBAS</h2>
+      <div class="checklist" data-section="pumps">
+        <label><input type="checkbox" id="pumps-jacuzzi"> LIGAR BOMBA JACUZZI (ALARME 4H)</label>
+        <label><input type="checkbox" id="pumps-piscina"> LIGAR BOMBA PISCINA (ALARME 8H)</label>
+        <label><input type="checkbox" id="pumps-off"> DESLIGAR BOMBAS</label>
+      </div>
+      <div class="progress" id="pumps-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="pumps-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('pumps-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="pomodoro">
+      <h2>🍅 POMODORO TIMER</h2>
+      <div class="pomodoro">
+        <select id="pomodoro-duration">
+          <option value="25">25 minutos (Foco)</option>
+          <option value="20">20 minutos</option>
+          <option value="15">15 minutos</option>
+          <option value="5">5 minutos (Pausa)</option>
+        </select>
+        <span id="pomodoro-time">25:00</span>
+        <span id="pomodoro-mode">FOCO</span>
+        <button id="pomodoro-start">INICIAR</button>
+        <button id="pomodoro-pause" disabled>PAUSAR</button>
+        <button id="pomodoro-reset">REINICIAR</button>
+      </div>
+      <div class="progress" id="pomodoro-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="pomodoro-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('pomodoro-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="mood">
+      <h2>😊 MEU HUMOR HOJE</h2>
+      <div class="mood-selector">
+        <button data-mood="happy">😊</button>
+        <button data-mood="neutral">😐</button>
+        <button data-mood="sad">😥</button>
+        <button data-mood="frustrated">😣</button>
+        <button data-mood="angry">😡</button>
+      </div>
+      <div class="mood-date" id="mood-date"></div>
+      <div class="progress" id="mood-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="mood-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('mood-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="water">
+      <h2>💧 HIDRATAÇÃO</h2>
+      <div class="water-tracker">
+        <button onclick="window.addWater(200)">💧200ml</button>
+        <button onclick="window.addWater(400)">💧400ml</button>
+        <button onclick="window.addWater(600)">💧600ml</button>
+        <button onclick="window.addWater(800)">💧800ml</button>
+        <button onclick="window.addWater(1000)">💧1L</button>
+        <button onclick="window.removeWater()" class="delete">🗑️Retirar</button>
+        <p id="water-total">VOCÊ BEBEU 0ML HOJE</p>
+        <svg width="200" height="20">
+          <rect x="0" y="0" width="200" height="20" fill="#555555"/>
+          <rect x="0" y="0" width="0" height="20" fill="#1E88E5" id="water-level"/>
+        </svg>
+      </div>
+      <div class="obstacles">
+        <textarea id="water-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('water-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="todo">
+      <h2>✅ TO-DO LIST</h2>
+      <div class="todo-list" id="todo-list"></div>
+      <div class="todo-buttons">
+        <button class="todo-button" id="add-todo" title="Adicionar Tarefa">➕</button>
+        <button class="todo-button" id="send-todo" title="Enviar Tarefas">🚀</button>
+        <button class="todo-button delete" id="delete-todo" title="Apagar Tarefas">🗑️</button>
+      </div>
+      <div class="progress" id="todo-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="todo-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('todo-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="gratitude">
+      <h2>🙏 DIÁRIO DE GRATIDÃO</h2>
+      <div class="gratitude">
+        <input type="text" id="gratitude1" placeholder="1. SOU GRATO POR...">
+        <input type="text" id="gratitude2" placeholder="2. SOU GRATO POR...">
+        <input type="text" id="gratitude3" placeholder="3. SOU GRATO POR...">
+      </div>
+      <div class="progress" id="gratitude-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="gratitude-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('gratitude-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="sleep">
+      <h2>🌙 ANTES DE DORMIR</h2>
+      <div class="checklist" data-section="sleep">
+        <label><input type="checkbox" id="sleep1"> SEPARAR ROUPA DE TREINO E ROUPA DO DIA SEGUINTE</label>
+        <label><input type="checkbox" id="sleep2"> SEPARAR SUPLEMENTOS DA MANHÃ E PRÉ-TREINO</label>
+        <label><input type="checkbox" id="sleep3"> DEIXAR WHEY PROTEIN JÁ MEDIDO EM COQUETELEIRA</label>
+        <label><input type="checkbox" id="sleep4"> ENCHER GARRAFA DE ÁGUA E PREPARAR ÁGUA MORNA COM SAL</label>
+        <label><input type="checkbox" id="sleep5"> SPRAY NA CAMA (CHEIRO AGRADÁVEL)</label>
+        <label><input type="checkbox" id="sleep6"> VERIFICAR COMPROMISSOS OU URGÊNCIAS</label>
+        <label><input type="checkbox" id="sleep7"> PREPARAR CENÁRIO DE GRAVAÇÃO</label>
+        <label><input type="checkbox" id="sleep8"> FIXAR SUPORTE DE PAREDES COM VÁCUO</label>
+        <label><input type="checkbox" id="sleep9"> SUBSTITUIR TOALHAS QUE SOLTAM PELO</label>
+      </div>
+      <div class="progress" id="sleep-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="sleep-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('sleep-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="wake">
+      <h2>⏰ 4H00 – ACORDAR COM PROPÓSITO</h2>
+      <div class="checklist" data-section="wake">
+        <label><input type="checkbox" id="wake1"> LEVANTAR NA HORA (SEM SONECA)</label>
+        <label><input type="checkbox" id="wake2"> ARRUMAR A CAMA E PASSAR SPRAY</label>
+        <label><input type="checkbox" id="wake3"> BEBER ÁGUA MORNA COM SAL</label>
+        <label><input type="checkbox" id="wake4"> ORAÇÃO</label>
+        <label><input type="checkbox" id="wake5"> LEITURA DA BÍBLIA E ESTUDO</label>
+        <label><input type="checkbox" id="wake6"> VISUALIZAÇÃO GUIADA (5 MIN)</label>
+      </div>
+      <div class="progress" id="wake-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="wake-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('wake-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="supp">
+      <h2>☕ 4H30 – CAFÉ PRETO E SUPLEMENTOS</h2>
+      <div class="checklist" data-section="supp">
+        <label><input type="checkbox" id="supp1"> SUPLEMENTOS</label>
+        <label><input type="checkbox" id="supp2"> ALONGAMENTO RÁPIDO DE 5 MINUTOS</label>
+        <label><input type="checkbox" id="supp3"> SAIR ATÉ 4H50</label>
+      </div>
+      <div class="progress" id="supp-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="supp-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('supp-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="gym">
+      <h2>🏋️‍♂️ 5H00 – 6H10 – ACADEMIA</h2>
+      <div class="checklist" data-section="gym">
+        <label><input type="checkbox" id="gym1"> TREINO COM FOCO EM MASSA MAGRA</label>
+        <label><input type="checkbox" id="gym2"> REGISTRAR PESOS, SÉRIES E REPETIÇÕES</label>
+        <label><input type="checkbox" id="gym3"> OUVIR ÁUDIO BINAURAL SEM LETRA</label>
+      </div>
+      <div class="progress" id="gym-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="gym-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('gym-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="bath">
+      <h2>🛁 6H10 – 6H30 – BANHO + PREPARAÇÃO</h2>
+      <div class="checklist" data-section="bath">
+        <label><input type="checkbox" id="bath1"> BANHO COM MÚSICA DE FOCO OU EM SILÊNCIO</label>
+        <label><input type="checkbox" id="bath2"> ROUPA JÁ SEPARADA DO DIA ANTERIOR</label>
+      </div>
+      <div class="progress" id="bath-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="bath-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('bath-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="breakfast">
+      <h2>🍽️ 6H30 – 7H00 – CAFÉ DA MANHÃ ESTRATÉGICO</h2>
+      <div class="checklist" data-section="breakfast">
+        <label><input type="radio" name="breakfast" id="breakfast1" value="option1"> OPÇÃO 1: 3 OVOS INTEIROS + 50G DE VEGETAIS</label>
+        <label><input type="radio" name="breakfast" id="breakfast2" value="option2"> OPÇÃO 2: SHAKE COM WHEY, BANANA, PASTA DE AMENDOIM</label>
+        <label><input type="radio" name="breakfast" id="breakfast3" value="option3"> OPÇÃO 3: 2 OVOS + PÃO + FRUTAS VERMELHAS</label>
+      </div>
+      <p>META: CALORIAS TOTAIS POR REFEIÇÃO: 300–320 KCAL</p>
+      <div class="progress" id="breakfast-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="breakfast-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('breakfast-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="work">
+      <h2>🚀 7H00 – 9H00 – EXECUÇÃO PROFUNDA</h2>
+      <div class="checklist" data-section="work">
+        <label><input type="checkbox" id="work1"> VER 1 FUNIL POR DIA</label>
+        <label><input type="checkbox" id="work2"> AJUSTAR OFERTA</label>
+        <label><input type="checkbox" id="work3"> VER CAMPANHAS GOOGLE E FACEBOOK ADS</label>
+        <label><input type="checkbox" id="work4"> ESTUDAR CONCORRENTES</label>
+      </div>
+      <div class="progress" id="work-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="work-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('work-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="reset">
+      <h2>🧹 9H00 – 9H30 – RESET DA CASA</h2>
+      <div class="checklist" data-section="reset">
+        <label><input type="checkbox" id="reset1"> ARRUMAR AMBIENTE VISUAL</label>
+        <label><input type="checkbox" id="reset2"> VER LISTA DE MERCADO</label>
+        <label><input type="checkbox" id="reset3"> RESPONDER MENSAGENS IMPORTANTES</label>
+      </div>
+      <div class="progress" id="reset-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="reset-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('reset-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="content">
+      <h2>🌍 9H30 – 12H00 – CRIAÇÃO DE CONTEÚDO</h2>
+      <div class="checklist" data-section="content">
+        <label><input type="checkbox" id="content1"> PRODUZIR: 2 REELS + 2 POSTS POR DIA</label>
+        <label><input type="checkbox" id="content2"> CRIAR 40 CRIATIVOS POR SEMANA</label>
+        <label><input type="checkbox" id="content3"> GRAVAR 2 CURSOS POR SEMANA</label>
+      </div>
+      <div class="progress" id="content-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="content-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('content-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="lunch">
+      <h2>🍽️ 12H00 – 13H00 – ALMOÇO</h2>
+      <p>COMIDA LIMPA, LEVE, COM PROTEÍNAS MAGRAS E VEGETAIS</p>
+      <div class="progress" id="lunch-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="lunch-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('lunch-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="org">
+      <h2>🧼 13H00 – 13H30 – ORGANIZAÇÃO RÁPIDA</h2>
+      <div class="checklist" data-section="org">
+        <label><input type="checkbox" id="org1"> ROUPAS, LOUÇA, AJUSTES BÁSICOS</label>
+      </div>
+      <div class="progress" id="org-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="org-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('org-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="sun">
+      <h2>☀️ 13H30 – 14H00 – SOL NO CORPO</h2>
+      <div class="checklist" data-section="sun">
+        <label><input type="checkbox" id="sun1"> TOMAR SOL 10–15 MIN</label>
+        <label><input type="checkbox" id="sun2"> LIGAR PARA ALGUÉM IMPORTANTE</label>
+      </div>
+      <div class="progress" id="sun-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="sun-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('sun-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="study">
+      <h2>📚 14H00 – 15H00 – ESTUDO DE TRÁFEGO</h2>
+      <div class="checklist" data-section="study">
+        <label><input type="checkbox" id="study1"> ANALISAR CRIATIVOS, ESTRUTURA</label>
+        <label><input type="checkbox" id="study2"> ESTUDAR GOOGLE ADS, FACEBOOK ADS</label>
+      </div>
+      <div class="progress" id="study-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="study-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('study-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="metrics">
+      <h2>📈 15H00 – 16H00 – MÉTRICAS</h2>
+      <div class="checklist" data-section="metrics">
+        <label><input type="checkbox" id="metrics1"> VER TRELLO, HOTMART, MANYCHAT</label>
+        <label><input type="checkbox" id="metrics2"> DIAGNOSTICAR KPIS E SUGERIR AJUSTES</label>
+      </div>
+      <div class="progress" id="metrics-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="metrics-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('metrics-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="close">
+      <h2>🧩 16H00 – 17H00 – FECHAMENTO DE CICLOS</h2>
+      <div class="checklist" data-section="close">
+        <label><input type="checkbox" id="close1"> ENCERRAR PENDÊNCIAS</label>
+        <label><input type="checkbox" id="close2"> COBRAR RETORNOS, REPLANEJAR</label>
+      </div>
+      <div class="progress" id="close-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="close-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('close-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="create">
+      <h2>💡 17H00 – 18H00 – CRIATIVOS OU REUNIÃO</h2>
+      <div class="checklist" data-section="create">
+        <label><input type="checkbox" id="create1"> GRAVAR CONTEÚDO Snippets: 25</label>
+        <label><input type="checkbox" id="create2"> REUNIÃO COM PAUTA</label>
+      </div>
+      <div class="progress" id="create-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="create-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('create-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="dinner">
+      <h2>🥣 19H00 – JANTAR LEVE</h2>
+      <p>SUGESTÃO: SOPA DE OSSOS (200ML) COM LEGUMES</p>
+      <div class="progress" id="dinner-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="dinner-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('dinner-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="relax">
+      <h2>🛁 19H30 – BANHO RELAXANTE</h2>
+      <div class="checklist" data-section="relax">
+        <label><input type="checkbox" id="relax1"> LUZ BAIXA, MÚSICA AMBIENTE OU SILÊNCIO</label>
+      </div>
+      <div class="progress" id="relax-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="relax-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('relax-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="plan">
+      <h2>🌙 20H00 – CONVERSA + PLANEJAMENTO</h2>
+      <div class="checklist" data-section="plan">
+        <label><input type="checkbox" id="plan1"> FALAR COM ESPOSA, REVISAR AGENDA</label>
+        <label><input type="checkbox" id="plan2"> CHECAR URGÊNCIAS OU DECISÕES</label>
+      </div>
+      <div class="progress" id="plan-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="plan-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('plan-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="corrections">
+      <h2>📝 CAIXA DE CORREÇÃO</h2>
+      <p>Copie o texto abaixo para enviar ao ChatGPT com o prompt: "Analise meus obstáculos do dia e sugira como posso melhorar para o próximo dia, evitando os mesmos erros."</p>
+      <textarea id="corrections-box" readonly placeholder="Os obstáculos enviados aparecerão aqui..."></textarea>
+    </div>
+  </div>
+
+  <div id="important" class="tab-content">
+    <div class="reset-section" id="reset-data-section">
+      <button id="reset-data">🔄</button>
+    </div>
+
+    <div class="section" id="payments">
+      <h2>💸 PAGAMENTOS</h2>
+      <button class="add-task-button" id="add-payments-task">➕</button>
+      <div class="important-tasks" id="payments-list"></div>
+      <div class="progress" id="payments-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="payments-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('payments-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="wife">
+      <h2>👩 PEDIDOS DA ESPOSA</h2>
+      <button class="add-task-button" id="add-wife-task">➕</button>
+      <div class="important-tasks" id="wife-list"></div>
+      <div class="progress" id="wife-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="wife-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('wife-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="project">
+      <h2>📈 TAREFAS DO PROJETO</h2>
+      <button class="add-task-button" id="add-project-task">➕</button>
+      <div class="important-tasks" id="project-list"></div>
+      <div class="progress" id="project-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="project-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('project-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="pending">
+      <h2>🤝 PENDÊNCIAS COM OUTROS</h2>
+      <button class="add-task-button" id="add-pending-task">➕</button>
+      <div class="important-tasks" id="pending-list"></div>
+      <div class="progress" id="pending-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="pending-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('pending-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+
+    <div class="section" id="personal">
+      <h2>👤 TAREFAS PESSOAIS</h2>
+      <button class="add-task-button" id="add-personal-task">➕</button>
+      <div class="important-tasks" id="personal-list"></div>
+      <div class="progress" id="personal-progress">Progresso: 0%</div>
+      <div class="obstacles">
+        <textarea id="personal-obstacles" placeholder="O QUE ME ATRAPALHOU?"></textarea>
+        <button onclick="sendObstacles('personal-obstacles')">ENVIAR</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p style="text-align:center; margin-top: 2rem; font-size: 0.9rem;">Criado por Francisco Caldas • Atualizado por CRONOS</p>
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Tab Navigation
+      const tabButtons = document.querySelectorAll('.tab-button');
+      const tabContents = document.querySelectorAll('.tab-content');
+      tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          tabButtons.forEach(btn => btn.classList.remove('active'));
+          tabContents.forEach(content => content.classList.remove('active'));
+          button.classList.add('active');
+          document.getElementById(button.dataset.tab).classList.add('active');
+        });
+      });
+
+      // Set current date in mood section
+      const moodDate = document.getElementById('mood-date');
+      if (moodDate) {
+        const today = new Date();
+        const formattedDate = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
+        moodDate.textContent = `DATA: ${formattedDate}`;
+      }
+
+      // Reset data (unified for both tabs)
+      const resetButton = document.getElementById('reset-data');
+      if (resetButton) {
+        resetButton.addEventListener('click', () => {
+          if (confirm('TEM CERTEZA QUE DESEJA REINICIAR TODOS OS DADOS?')) {
+            localStorage.clear();
+            location.reload();
+          }
+        });
+      }
+
+      // Pomodoro Timer
+      let pomodoroInterval;
+      let isRunning = false;
+      let isFocus = true;
+      let timeLeft = 25 * 60;
+      const pomodoroTime = document.getElementById('pomodoro-time');
+      const pomodoroMode = document.getElementById('pomodoro-mode');
+      const startButton = document.getElementById('pomodoro-start');
+      const pauseButton = document.getElementById('pomodoro-pause');
+      const resetPomodoroButton = document.getElementById('pomodoro-reset');
+      const durationSelect = document.getElementById('pomodoro-duration');
+
+      const focusSound = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+      const breakSound = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+      const endSound = new Audio('data:audio/wav;base64,UklGRiwAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+
+      function updateTimerDisplay() {
+        if (pomodoroTime && pomodoroMode) {
+          const minutes = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+          const seconds = (timeLeft % 60).toString().padStart(2, '0');
+          pomodoroTime.textContent = `${minutes}:${seconds}`;
+          pomodoroMode.textContent = isFocus ? 'FOCO' : 'PAUSA';
+        }
+      }
+
+      function startPomodoro() {
+        if (!isRunning) {
+          isRunning = true;
+          if (startButton) startButton.disabled = true;
+          if (pauseButton) pauseButton.disabled = false;
+          focusSound.play();
+          pomodoroInterval = setInterval(() => {
+            timeLeft--;
+            updateTimerDisplay();
+            if (timeLeft <= 0) {
+              isFocus = !isFocus;
+              timeLeft = isFocus ? parseInt(durationSelect.value) * 60 : 5 * 60;
+              updateTimerDisplay();
+              endSound.play();
+              if (isFocus) focusSound.play();
+              else breakSound.play();
+              new Notification(isFocus ? 'HORA DE FOCAR!' : 'HORA DE PAUSAR!');
+            }
+          }, 1000);
+        }
+      }
+
+      function pausePomodoro() {
+        if (isRunning) {
+          isRunning = false;
+          clearInterval(pomodoroInterval);
+          if (startButton) startButton.disabled = false;
+          if (pauseButton) pauseButton.disabled = true;
+        }
+      }
+
+      function resetPomodoro() {
+        clearInterval(pomodoroInterval);
+        isRunning = false;
+        isFocus = true;
+        timeLeft = parseInt(durationSelect.value) * 60;
+        updateTimerDisplay();
+        if (startButton) startButton.disabled = false;
+        if (pauseButton) pauseButton.disabled = true;
+      }
+
+      if (durationSelect) {
+        durationSelect.addEventListener('change', () => {
+          if (!isRunning) {
+            timeLeft = parseInt(durationSelect.value) * 60;
+            updateTimerDisplay();
+          }
+        });
+      }
+
+      if (startButton) {
+        startButton.addEventListener('click', startPomodoro);
+      }
+      if (pauseButton) {
+        pauseButton.addEventListener('click', pausePomodoro);
+      }
+      if (resetPomodoroButton) {
+        resetPomodoroButton.addEventListener('click', resetPomodoro);
+      }
+
+      // Mood selector
+      const moodButtons = document.querySelectorAll('.mood-selector button');
+      const savedMood = localStorage.getItem('selectedMood');
+      moodButtons.forEach(button => {
+        if (button.dataset.mood === savedMood) {
+          button.classList.add('selected');
+          localStorage.setItem('mood-progress', '100');
+          const moodProgress = document.getElementById('mood-progress');
+          if (moodProgress) moodProgress.textContent = 'Progresso: 100%';
+        }
+        button.addEventListener('click', () => {
+          moodButtons.forEach(btn => btn.classList.remove('selected'));
+          button.classList.add('selected');
+          localStorage.setItem('selectedMood', button.dataset.mood);
+          localStorage.setItem('mood-progress', '100');
+          const moodProgress = document.getElementById('mood-progress');
+          if (moodProgress) moodProgress.textContent = 'Progresso: 100%';
+          new Notification(`HUMOR SELECIONADO: ${button.textContent}`);
+        });
+      });
+
+      // Water tracker
+      let waterTotal = parseInt(localStorage.getItem('waterTotal')) || 0;
+      let waterHistory = JSON.parse(localStorage.getItem('waterHistory')) || [];
+      const waterTotalDisplay = document.getElementById('water-total');
+      const waterLevel = document.getElementById('water-level');
+      if (waterTotalDisplay) {
+        waterTotalDisplay.textContent = `VOCÊ BEBEU ${waterTotal}ML HOJE`;
+      }
+      updateWaterLevel();
+
+      window.addWater = function(amount) {
+        waterTotal += amount;
+        waterHistory.push(amount);
+        localStorage.setItem('waterTotal', waterTotal);
+        localStorage.setItem('waterHistory', JSON.stringify(waterHistory));
+        if (waterTotalDisplay) {
+          waterTotalDisplay.textContent = `VOCÊ BEBEU ${waterTotal}ML HOJE`;
+        }
+        updateWaterLevel();
+        new Notification(`Adicionado ${amount}ml de água!`);
+      };
+
+      window.removeWater = function() {
+        if (waterHistory.length > 0) {
+          const lastAmount = waterHistory.pop();
+          waterTotal = Math.max(0, waterTotal - lastAmount);
+          localStorage.setItem('waterTotal', waterTotal);
+          localStorage.setItem('waterHistory', JSON.stringify(waterHistory));
+          if (waterTotalDisplay) {
+            waterTotalDisplay.textContent = `VOCÊ BEBEU ${waterTotal}ML HOJE`;
+          }
+          updateWaterLevel();
+          new Notification(`Removido ${lastAmount}ml de água!`);
+        } else {
+          new Notification('Nenhuma água para remover!');
+        }
+      };
+
+      function updateWaterLevel() {
+        const maxWater = 4000;
+        const width = Math.min((waterTotal / maxWater) * 200, 200);
+        if (waterLevel) {
+          waterLevel.setAttribute('width', width);
+        }
+      }
+
+      // To-Do List
+      const todoList = document.getElementById('todo-list');
+      const addTodoButton = document.getElementById('add-todo');
+      const sendTodoButton = document.getElementById('send-todo');
+      const deleteTodoButton = document.getElementById('delete-todo');
+      let todoCount = parseInt(localStorage.getItem('todoCount')) || 0;
+
+      function addTodoTask(index, text = '', date = '', time = '', destination = 'calendar', checked = false) {
+        if (!todoList) return;
+        const taskDiv = document.createElement('div');
+        taskDiv.className = 'task';
+        taskDiv.id = `todo-task${index}`;
+        taskDiv.innerHTML = `
+          <label>
+            <input type="checkbox" id="todo${index}" ${checked ? 'checked' : ''}>
+            <input type="text" id="todo-text${index}" placeholder="TAREFA ${index}" value="${text}">
+            <input type="date" id="todo-date${index}" value="${date}">
+            <input type="time" id="todo-time${index}" value="${time}">
+            <select id="todo-destination${index}">
+              <option value="calendar" ${destination === 'calendar' ? 'selected' : ''}>Google Agenda</option>
+              <option value="payments" ${destination === 'payments' ? 'selected' : ''}>Pagamentos</option>
+              <option value="wife" ${destination === 'wife' ? 'selected' : ''}>Pedidos da Esposa</option>
+              <option value="project" ${destination === 'project' ? 'selected' : ''}>Tarefas do Projeto</option>
+              <option value="pending" ${destination === 'pending' ? 'selected' : ''}>Pendências com Outros</option>
+              <option value="personal" ${destination === 'personal' ? 'selected' : ''}>Pessoal</option>
+            </select>
+          </label>
+          <button class="delete" onclick="deleteTodoTask(${index})">🗑️</button>
+        `;
+        todoList.appendChild(taskDiv);
+
+        const checkbox = document.getElementById(`todo${index}`);
+        const textInput = document.getElementById(`todo-text${index}`);
+        const dateInput = document.getElementById(`todo-date${index}`);
+        const timeInput = document.getElementById(`todo-time${index}`);
+        const destinationSelect = document.getElementById(`todo-destination${index}`);
+
+        if (checkbox) {
+          checkbox.addEventListener('change', () => {
+            localStorage.setItem(`todo${index}`, checkbox.checked);
+            if (checkbox.checked) {
+              const taskText = textInput.value || `TAREFA ${index}`;
+              new Notification(`TAREFA CONCLUÍDA: ${taskText}`);
+            }
+            updateTodoProgress();
+          });
+        }
+
+        if (textInput) {
+          textInput.addEventListener('input', () => {
+            localStorage.setItem(`todo-text${index}`, textInput.value);
+          });
+        }
+
+        if (dateInput) {
+          dateInput.addEventListener('input', () => {
+            localStorage.setItem(`todo-date${index}`, dateInput.value);
+          });
+        }
+
+        if (timeInput) {
+          timeInput.addEventListener('input', () => {
+            localStorage.setItem(`todo-time${index}`, timeInput.value);
+          });
+        }
+
+        if (destinationSelect) {
+          destinationSelect.addEventListener('change', () => {
+            localStorage.setItem(`todo-destination${index}`, destinationSelect.value);
+          });
+        }
+      }
+
+      function deleteTodoTask(index) {
+        const taskDiv = document.getElementById(`todo-task${index}`);
+        if (taskDiv) {
+          taskDiv.remove();
+          localStorage.removeItem(`todo${index}`);
+          localStorage.removeItem(`todo-text${index}`);
+          localStorage.removeItem(`todo-date${index}`);
+          localStorage.removeItem(`todo-time${index}`);
+          localStorage.removeItem(`todo-destination${index}`);
+          updateTodoProgress();
+        }
+      }
+
+      function deleteAllTodoTasks() {
+        if (confirm('Apagar todas as tarefas do To-Do List?')) {
+          for (let i = 1; i <= todoCount; i++) {
+            deleteTodoTask(i);
+          }
+          todoCount = 0;
+          localStorage.setItem('todoCount', todoCount);
+          updateTodoProgress();
+        }
+      }
+
+      function handleTaskDestination(index) {
+        const text = document.getElementById(`todo-text${index}`)?.value;
+        const date = document.getElementById(`todo-date${index}`)?.value;
+        const time = document.getElementById(`todo-time${index}`)?.value;
+        const destination = document.getElementById(`todo-destination${index}`)?.value;
+
+        if (destination === 'calendar' && text && date && time) {
+          const startDateTime = new Date(`${date}T${time}`);
+          const endDateTime = new Date(startDateTime.getTime() + 30 * 60 * 1000);
+          const formatDate = (d) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+          const calendarUrl = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(text)}&dates=${formatDate(startDateTime)}/${formatDate(endDateTime)}`;
+          window.open(calendarUrl, '_blank');
+          deleteTodoTask(index);
+        } else if (['payments', 'wife', 'project', 'pending', 'personal'].includes(destination) && text) {
+          const section = destination;
+          const list = document.getElementById(`${section}-list`);
+          let taskCount = parseInt(localStorage.getItem(`${section}Count`)) || 0;
+          taskCount++;
+          localStorage.setItem(`${section}Count`, taskCount);
+
+          const taskDiv = document.createElement('div');
+          taskDiv.innerHTML = `
+            <label>
+              <input type="checkbox" id="${section}${taskCount}">
+              <input type="text" id="${section}-text${taskCount}" value="${text}">
+            </label>
+            <button class="delete" onclick="window.deleteTask('${section}', ${taskCount})">🗑️</button>
+          `;
+          if (list) list.appendChild(taskDiv);
+
+          const checkbox = document.getElementById(`${section}${taskCount}`);
+          const textInput = document.getElementById(`${section}-text${taskCount}`);
+
+          if (checkbox) {
+            checkbox.addEventListener('change', () => {
+              localStorage.setItem(`${section}${taskCount}`, checkbox.checked);
+              if (checkbox.checked) {
+                const taskText = textInput?.value || `${section.toUpperCase()} ${taskCount}`;
+                new Notification(`${section.toUpperCase()} CONCLUÍDO: ${taskText}`);
+              }
+              window.updateImportantProgress(section);
+            });
+          }
+
+          if (textInput) {
+            textInput.addEventListener('input', () => {
+              localStorage.setItem(`${section}-text${taskCount}`, textInput.value);
+            });
+          }
+
+          localStorage.setItem(`${section}-text${taskCount}`, text);
+          window.updateImportantProgress(section);
+          deleteTodoTask(index);
+        }
+      }
+
+      function sendAllTasks() {
+        const tasksToProcess = [];
+        for (let i = 1; i <= todoCount; i++) {
+          if (document.getElementById(`todo-task${i}`)) {
+            tasksToProcess.push(i);
+          }
+        }
+        tasksToProcess.forEach(index => {
+          handleTaskDestination(index);
+        });
+        todoCount = Math.max(0, todoCount - tasksToProcess.length);
+        localStorage.setItem('todoCount', todoCount);
+        updateTodoProgress();
+      }
+
+      function updateTodoProgress() {
+        if (!todoList) return;
+        const checkboxes = todoList.querySelectorAll('input[type="checkbox"]');
+        const total = checkboxes.length;
+        const checked = Array.from(checkboxes).filter(cb => cb.checked).length;
+        const progress = total > 0 ? (checked / total) * 100 : 0;
+        localStorage.setItem('todo-progress', progress.toFixed(0));
+        const todoProgress = document.getElementById('todo-progress');
+        if (todoProgress) {
+          todoProgress.textContent = `Progresso: ${progress.toFixed(0)}%`;
+        }
+      }
+
+      for (let i = 1; i <= todoCount; i++) {
+        const text = localStorage.getItem(`todo-text${i}`) || '';
+        const date = localStorage.getItem(`todo-date${i}`) || '';
+        const time = localStorage.getItem(`todo-time${i}`) || '';
+        const destination = localStorage.getItem(`todo-destination${i}`) || 'calendar';
+        const checked = localStorage.getItem(`todo${i}`) === 'true';
+        if (text || date || time || checked) {
+          addTodoTask(i, text, date, time, destination, checked);
+        }
+      }
+      updateTodoProgress();
+
+      if (addTodoButton) {
+        addTodoButton.addEventListener('click', () => {
+          todoCount++;
+          localStorage.setItem('todoCount', todoCount);
+          addTodoTask(todoCount);
+          updateTodoProgress();
+        });
+      }
+
+      if (sendTodoButton) {
+        sendTodoButton.addEventListener('click', sendAllTasks);
+      }
+
+      if (deleteTodoButton) {
+        deleteTodoButton.addEventListener('click', deleteAllTodoTasks);
+      }
+
+      // Gratitude Journal
+      document.querySelectorAll('.gratitude input[type="text"]').forEach((input, index) => {
+        const savedText = localStorage.getItem(`gratitude${index + 1}`);
+        if (savedText) {
+          input.value = savedText;
+          localStorage.setItem('gratitude-progress', '100');
+          const gratitudeProgress = document.getElementById('gratitude-progress');
+          if (gratitudeProgress) gratitudeProgress.textContent = 'Progresso: 100%';
+        }
+        input.addEventListener('input', () => {
+          localStorage.setItem(`gratitude${index + 1}`, input.value);
+          localStorage.setItem('gratitude-progress', '100');
+          const gratitudeProgress = document.getElementById('gratitude-progress');
+          if (gratitudeProgress) gratitudeProgress.textContent = 'Progresso: 100%';
+        });
+      });
+
+      // Breakfast selection
+      const breakfastRadios = document.querySelectorAll('input[name="breakfast"]');
+      const savedBreakfast = localStorage.getItem('breakfast');
+      if (savedBreakfast) {
+        const breakfastRadio = document.getElementById(`breakfast${savedBreakfast.slice(-1)}`);
+        if (breakfastRadio) breakfastRadio.checked = true;
+        localStorage.setItem('breakfast-progress', '100');
+        const breakfastProgress = document.getElementById('breakfast-progress');
+        if (breakfastProgress) breakfastProgress.textContent = 'Progresso: 100%';
+      }
+      breakfastRadios.forEach(radio => {
+        radio.addEventListener('change', () => {
+          localStorage.setItem('breakfast', radio.value);
+          localStorage.setItem('breakfast-progress', '100');
+          const breakfastProgress = document.getElementById('breakfast-progress');
+          if (breakfastProgress) breakfastProgress.textContent = 'Progresso: 100%';
+          new Notification(`CAFÉ DA MANHÃ SELECIONADO: ${radio.parentElement.textContent}`);
+        });
+      });
+
+      // Checklist Progress
+      function updateChecklistProgress(section) {
+        const checkboxes = document.querySelectorAll(`.checklist[data-section="${section}"] input[type="checkbox"]`);
+        const total = checkboxes.length;
+        const checked = Array.from(checkboxes).filter(cb => cb.checked).length;
+        const progress = total > 0 ? (checked / total) * 100 : 0;
+        localStorage.setItem(`${section}-progress`, progress.toFixed(0));
+        const sectionProgress = document.getElementById(`${section}-progress`);
+        if (sectionProgress) {
+          sectionProgress.textContent = `Progresso: ${progress.toFixed(0)}%`;
+        }
+      }
+
+      document.querySelectorAll('.checklist input[type="checkbox"]').forEach(checkbox => {
+        const section = checkbox.closest('.checklist').dataset.section;
+        const savedState = localStorage.getItem(checkbox.id);
+        if (savedState === 'true') {
+          checkbox.checked = true;
+        }
+        checkbox.addEventListener('change', () => {
+          localStorage.setItem(checkbox.id, checkbox.checked);
+          if (checkbox.checked && checkbox.id === 'pumps-jacuzzi') {
+            new Notification('Bomba da Jacuzzi ligada! Lembrete configurado para 4h.');
+            const now = new Date();
+            const reminderTime = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+            const formattedTime = reminderTime.toISOString().replace(/[-:]/g, '').split('.')[0];
+            window.open(`x-apple-reminder://?title=Desligar Bomba Jacuzzi&dueDateTime=${formattedTime}`, '_blank');
+            setTimeout(() => new Notification('Desligar bomba da Jacuzzi (4h)'), 4 * 60 * 60 * 1000);
+          }
+          if (checkbox.checked && checkbox.id === 'pumps-piscina') {
+            new Notification('Bomba da Piscina ligada! Lembrete configurado para 8h.');
+            const now = new Date();
+            const reminderTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+            const formattedTime = reminderTime.toISOString().replace(/[-:]/g, '').split('.')[0];
+            window.open(`x-apple-reminder://?title=Desligar Bomba Piscina&dueDateTime=${formattedTime}`, '_blank');
+            setTimeout(() => new Notification('Desligar bomba da Piscina (8h)'), 8 * 60 * 60 * 1000);
+          }
+          if (checkbox.checked && checkbox.id === 'pumps-off') {
+            new Notification('Bombas desligadas!');
+          }
+          if (checkbox.checked && checkbox.id !== 'pumps-jacuzzi' && checkbox.id !== 'pumps-piscina' && checkbox.id !== 'pumps-off') {
+            const taskText = checkbox.parentElement.textContent;
+            new Notification(`TAREFA CONCLUÍDA: ${taskText}`);
+          }
+          updateChecklistProgress(section);
+        });
+        updateChecklistProgress(section);
+      });
+
+      // Obstacles Textareas and Corrections Box
+      const correctionsBox = document.getElementById('corrections-box');
+      let correctionsText = localStorage.getItem('corrections') || '';
+
+      if (correctionsBox) {
+        correctionsBox.value = correctionsText;
+      }
+
+      function sendObstacles(textareaId) {
+        const textarea = document.getElementById(textareaId);
+        if (textarea && textarea.value.trim()) {
+          const sectionTitle = textarea.closest('.section').querySelector('h2').textContent;
+          const obstacleText = textarea.value.trim();
+          const entry = `${sectionTitle}:\n${obstacleText}\n\n`;
+          
+          correctionsText = correctionsText ? correctionsText + entry : entry;
+          localStorage.setItem('corrections', correctionsText);
+          
+          if (correctionsBox) {
+            correctionsBox.value = correctionsText;
+          }
+          
+          textarea.value = '';
+          localStorage.setItem(textareaId, '');
+          new Notification('Obstáculo enviado para a Caixa de Correção!');
+        } else {
+          new Notification('Escreva algo antes de enviar!');
+        }
+      }
+
+      document.querySelectorAll('.obstacles textarea').forEach(textarea => {
+        const savedText = localStorage.getItem(textarea.id);
+        if (savedText) textarea.value = savedText;
+        textarea.addEventListener('input', () => {
+          localStorage.setItem(textarea.id, textarea.value);
+        });
+      });
+
+      window.sendObstacles = sendObstacles;
+
+      // Important Tasks
+      const taskSections = ['payments', 'wife', 'project', 'pending', 'personal'];
+      taskSections.forEach(section => {
+        const list = document.getElementById(`${section}-list`);
+        const addButton = document.getElementById(`add-${section}-task`);
+        let taskCount = parseInt(localStorage.getItem(`${section}Count`)) || 0;
+
+        function addImportantTask(index, text = '', checked = false) {
+          if (!list) return;
+          const taskDiv = document.createElement('div');
+          taskDiv.innerHTML = `
+            <label>
+              <input type="checkbox" id="${section}${index}" ${checked ? 'checked' : ''}>
+              <input type="text" id="${section}-text${index}" placeholder="${section.toUpperCase()} ${index}" value="${text}">
+            </label>
+            <button class="delete" onclick="window.deleteTask('${section}', ${index})">🗑️</button>
+          `;
+          list.appendChild(taskDiv);
+
+          const checkbox = document.getElementById(`${section}${index}`);
+          const textInput = document.getElementById(`${section}-text${index}`);
+
+          if (checkbox) {
+            checkbox.addEventListener('change', () => {
+              localStorage.setItem(`${section}${index}`, checkbox.checked);
+              if (checkbox.checked) {
+                const taskText = textInput?.value || `${section.toUpperCase()} ${index}`;
+                new Notification(`${section.toUpperCase()} CONCLUÍDO: ${taskText}`);
+              }
+              window.updateImportantProgress(section);
+            });
+          }
+
+          if (textInput) {
+            textInput.addEventListener('input', () => {
+              localStorage.setItem(`${section}-text${index}`, textInput.value);
+            });
+          }
+        }
+
+        window.deleteTask = function(section, index) {
+          if (confirm(`Apagar ${section.toUpperCase()} ${index}?`)) {
+            localStorage.removeItem(`${section}${index}`);
+            localStorage.removeItem(`${section}-text${index}`);
+            const taskDiv = document.getElementById(`${section}${index}`)?.parentElement.parentElement;
+            if (taskDiv) taskDiv.remove();
+            window.updateImportantProgress(section);
+          }
+        };
+
+        window.updateImportantProgress = function(section) {
+          const list = document.getElementById(`${section}-list`);
+          if (!list) return;
+          const checkboxes = list.querySelectorAll('input[type="checkbox"]');
+          const total = checkboxes.length;
+          const checked = Array.from(checkboxes).filter(cb => cb.checked).length;
+          const progress = total > 0 ? (checked / total) * 100 : 0;
+          localStorage.setItem(`${section}-progress`, progress.toFixed(0));
+          const sectionProgress = document.getElementById(`${section}-progress`);
+          if (sectionProgress) {
+            sectionProgress.textContent = `Progresso: ${progress.toFixed(0)}%`;
+          }
+        };
+
+        for (let i = 1; i <= taskCount; i++) {
+          const text = localStorage.getItem(`${section}-text${i}`) || '';
+          const checked = localStorage.getItem(`${section}${i}`) === 'true';
+          addImportantTask(i, text, checked);
+        }
+        window.updateImportantProgress(section);
+
+        if (addButton) {
+          addButton.addEventListener('click', () => {
+            taskCount++;
+            localStorage.setItem(`${section}Count`, taskCount);
+            addImportantTask(taskCount);
+            window.updateImportantProgress(section);
+          });
+        }
+      });
+    });
+  </script>
+</body>
+</html>
