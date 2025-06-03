@@ -1,0 +1,840 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expert EUA - Planejamento Mobile</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a, #2c2c2c);
+            color: #fff;
+            overflow-x: hidden;
+        }
+        
+        .phone-container {
+            max-width: 420px;
+            margin: 15px auto;
+            background: #000;
+            border-radius: 50px;
+            padding: 15px;
+            box-shadow: 0 0 40px rgba(255,255,255,0.15);
+            border: 4px solid #333;
+            min-height: 95vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 25px;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .time, .battery {
+            color: #fff;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 15px;
+            padding: 0 25px;
+        }
+        
+        .header h1 {
+            font-size: 1.8em;
+            margin-bottom: 6px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .header p {
+            font-size: 1em;
+            color: #aaa;
+        }
+        
+        .reset-button {
+            display: block;
+            margin: 10px auto 15px;
+            padding: 12px 25px;
+            background: linear-gradient(135deg, #e63946, #d00000);
+            color: #fff;
+            border: none;
+            border-radius: 25px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .reset-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(230, 57, 70, 0.4);
+        }
+        
+        .tabs {
+            display: flex;
+            background: #111;
+            border-radius: 30px;
+            padding: 5px;
+            margin: 0 10px 15px;
+            box-shadow: inset 0 0 12px rgba(0,0,0,0.6);
+        }
+        
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 15px;
+            border-radius: 25px;
+            font-size: 1.1em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: #777;
+        }
+        
+        .tab.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+            box-shadow: 0 3px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 0 10px;
+            animation: fadeIn 0.3s ease;
+            flex-grow: 1;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .section {
+            background: #111;
+            border-radius: 25px;
+            padding: 25px;
+            margin-bottom: 10px;
+            border: 1px solid #222;
+        }
+        
+        .section-title {
+            font-size: 1.4em;
+            font-weight: 700;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #fff;
+        }
+        
+        .section-icon {
+            font-size: 1.6em;
+        }
+        
+        .story-phrase {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 15px;
+            border-radius: 20px;
+            font-style: italic;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            line-height: 1.4;
+        }
+        
+        .checklist {
+            margin-top: 10px;
+        }
+        
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: #1a1a1a;
+            border-radius: 15px;
+            margin-bottom: 10px;
+            transition: all 0.2s ease;
+            border: 1px solid #333;
+        }
+        
+        .checklist-item:hover {
+            background: #222;
+            border-color: #444;
+        }
+        
+        .checkbox {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #555;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        .checkbox.checked {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-color: #667eea;
+        }
+        
+        .checkbox.checked::after {
+            content: '✓';
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .checklist-text {
+            font-size: 1.1em;
+            color: #ccc;
+            line-height: 1.4;
+        }
+        
+        .checklist-item.completed .checklist-text {
+            color: #888;
+            text-decoration: line-through;
+        }
+        
+        .elements-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .element {
+            background: #222;
+            color: #ccc;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 500;
+            border: 1px solid #333;
+        }
+        
+        .element.spiritual { 
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .element.fitness { 
+            background: linear-gradient(135deg, #fd79a8, #fdcb6e);
+            color: white;
+            border-color: #fd79a8;
+        }
+        
+        .element.interactive { 
+            background: linear-gradient(135deg, #a29bfe, #6c5ce7);
+            color: white;
+            border-color: #a29bfe;
+        }
+        
+        .question-day {
+            background: #1a1a1a;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 10px;
+            border: 1px solid #333;
+        }
+        
+        .day-title {
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 12px;
+            font-size: 1.2em;
+        }
+        
+        .question-item {
+            background: #222;
+            padding: 12px 15px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            font-size: 1em;
+            color: #ccc;
+            line-height: 1.4;
+            border-left: 4px solid #667eea;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .question-item:hover {
+            background: #2a2a2a;
+            transform: translateX(4px);
+        }
+        
+        .viral-idea {
+            background: #1a1a1a;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 10px;
+            border: 1px solid #333;
+        }
+        
+        .viral-title {
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .viral-hook {
+            background: linear-gradient(135deg, #fd79a8, #fdcb6e);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 12px;
+            font-size: 0.9em;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .viral-description {
+            font-size: 1em;
+            color: #ccc;
+            line-height: 1.4;
+        }
+        
+        .post-schedule {
+            background: #1a1a1a;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 10px;
+            border: 1px solid #333;
+            text-align: center;
+        }
+        
+        .schedule-time {
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 25px;
+            font-weight: 700;
+            font-size: 1.1em;
+            margin-bottom: 15px;
+            display: inline-block;
+        }
+        
+        .post-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .day-post {
+            background: #222;
+            border: 1px solid #333;
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .day-post:hover {
+            border-color: #667eea;
+            background: #2a2a2a;
+        }
+        
+        .day-name {
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 6px;
+            font-size: 1em;
+        }
+        
+        .post-type {
+            background: #667eea;
+            color: white;
+            padding: 6px 10px;
+            border-radius: 12px;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.4s ease, background 0.4s ease;
+        }
+        
+        .completion-text {
+            text-align: center;
+            font-size: 1em;
+            color: #aaa;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="phone-container">
+        <div class="status-bar">
+            <div class="time">9:41</div>
+            <div class="battery">🔋 100%</div>
+        </div>
+        
+        <div class="header">
+            <h1>🇺🇸 Expert EUA</h1>
+            <p>Planejamento de Conteúdo</p>
+        </div>
+        
+        <button class="reset-button" onclick="resetAll()">Reiniciar Tudo</button>
+        
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="completion-text" id="completionText">0% concluído hoje</div>
+        
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('stories', this)">📱</div>
+            <div class="tab" onclick="showTab('questions', this)">❓</div>
+            <div class="tab" onclick="showTab('viral', this)">🚀</div>
+            <div class="tab" onclick="showTab('posts', this)">📸</div>
+        </div>
+        
+        <div id="stories" class="tab-content active">
+            <div class="section">
+                <div class="section-title">
+                    <span class="section-icon">🌅</span>
+                    Ritual Matinal
+                </div>
+                <div class="story-phrase">
+                    "QUEM CONSTRÓI O DIA ORANDO DORME COM DEUS FINALIZANDO A OBRA"
+                </div>
+                <div class="elements-row">
+                    <span class="element">🥚 Ovos</span>
+                    <span class="element spiritual">📖 Bíblia</span>
+                    <span class="element spiritual">📱 iPad</span>
+                    <span class="element">☕ Café</span>
+                    <span class="element">💊 Suplementos</span>
+                </div>
+                <div class="checklist">
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Preparar café e ovos frescos</div>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Posicionar Bíblia e iPad na mesa</div>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Organizar suplementos visíveis</div>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Capturar foto com boa iluminação</div>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Adicionar frase motivacional</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <div class="section-title">
+                    <span class="section-icon">💪</span>
+                    Academia
+                </div>
+                <div class="story-phrase">
+                    "1% MELHOR TODO DIA E EM BREVE A OBRA FICA PRONTA"
+                </div>
+                <div class="elements-row">
+                    <span class="element fitness">🏋️ Treino</span>
+                    <span class="element fitness">💪 Evolução</span>
+                    <span class="element fitness">📈 Progresso</span>
+                    <span class="element fitness">🎯 Disciplina</span>
+                </div>
+                <div class="checklist">
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Filmar momento intenso do treino</div>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Mostrar suor e dedicação</div>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Incluir equipamentos na cena</div>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Adicionar frase de evolução</div>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Conectar com objetivos EUA</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <div class="section-title">
+                    <span class="section-icon">❓</span>
+                    Caixa de Perguntas
+                </div>
+                <div class="story-phrase">
+                    "PERGUNTE O QUE QUISER SOBRE OS ESTADOS UNIDOS"
+                </div>
+                <div class="elements-row">
+                    <span class="element interactive">❓ Perguntas</span>
+                    <span class="element interactive">🇺🇸 EUA</span>
+                    <span class="element interactive">💬 Interação</span>
+                </div>
+                <div class="checklist">
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Criar design atrativo da caixa</div>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Incluir bandeira dos EUA</div>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Call-to-action claro e direto</div>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Monitorar respostas ativas</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <div class="section-title">
+                    <span class="section-icon">💬</span>
+                    Respostas + Rotina
+                </div>
+                <div class="elements-row">
+                    <span class="element interactive">💬 Respostas</span>
+                    <span class="element interactive">📋 Rotina</span>
+                    <span class="element interactive">🎓 Educação</span>
+                </div>
+                <div class="checklist">
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Selecionar melhores perguntas</div>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Preparar respostas detalhadas</div>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Filmar ambiente de trabalho</div>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Criar conexão pessoal</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="questions" class="tab-content">
+            <div class="question-day">
+                <div class="day-title">🌅 Segunda - Motivação</div>
+                <div class="question-item">"Como você se mantém motivado todos os dias?"</div>
+                <div class="question-item">"Qual foi o primeiro passo para os EUA?"</div>
+                <div class="question-item">"Como é sua rotina matinal?"</div>
+                <div class="question-item">"Conselho para quem está começando?"</div>
+            </div>
+            <div class="question-day">
+                <div class="day-title">💪 Terça - Desafios</div>
+                <div class="question-item">"Qual foi o maior obstáculo nos EUA?"</div>
+                <div class="question-item">"Como lidar com a saudade?"</div>
+                <div class="question-item">"Quais eram seus maiores medos?"</div>
+                <div class="question-item">"Como superou a barreira do idioma?"</div>
+            </div>
+            <div class="question-day">
+                <div class="day-title">💰 Quarta - Finanças</div>
+                <div class="question-item">"Quanto dinheiro é necessário?"</div>
+                <div class="question-item">"Como conseguir o primeiro emprego?"</div>
+                <div class="question-item">"Diferença salarial Brasil vs EUA?"</div>
+                <div class="question-item">"Vale investir em educação americana?"</div>
+            </div>
+            <div class="question-day">
+                <div class="day-title">🏠 Quinta - Vida Prática</div>
+                <div class="question-item">"Como funciona o sistema de saúde?"</div>
+                <div class="question-item">"Qual estado recomenda?"</div>
+                <div class="question-item">"Como é morar nos EUA vs Brasil?"</div>
+                <div class="question-item">"Documentos essenciais?"</div>
+            </div>
+            <div class="question-day">
+                <div class="day-title">🎯 Sexta - Objetivos</div>
+                <div class="question-item">"Próximos objetivos nos EUA?"</div>
+                <div class="question-item">"Como se vê em 5 anos?"</div>
+                <div class="question-item">"Pretende voltar ao Brasil?"</div>
+                <div class="question-item">"Legado para brasileiros?"</div>
+            </div>
+            <div class="question-day">
+                <div class="day-title">🌟 Sábado - Inspiração</div>
+                <div class="question-item">"Quando soube que estava certo?"</div>
+                <div class="question-item">"Como é o sonho americano real?"</div>
+                <div class="question-item">"Conselho para seu eu passado?"</div>
+                <div class="question-item">"Maior conquista até agora?"</div>
+            </div>
+            <div class="question-day">
+                <div class="day-title">📚 Domingo - Reflexão</div>
+                <div class="question-item">"Aprendizado da semana?"</div>
+                <div class="question-item">"Como se prepara mentalmente?"</div>
+                <div class="question-item">"Livro/curso que recomenda?"</div>
+                <div class="question-item">"Equilibrar ambição e vida pessoal?"</div>
+            </div>
+        </div>
+        
+        <div id="viral" class="tab-content">
+            <div class="viral-idea">
+                <div class="viral-title">
+                    <span>🤯</span>
+                    "Brasileiro gastando em 1 dia nos EUA"
+                </div>
+                <div class="viral-hook">Hook: "Vocês não vão acreditar quanto gastei hoje..."</div>
+                <div class="viral-description">
+                    Mostrar todos os gastos do dia e comparar com Brasil. Final surpreendente com conversão.
+                </div>
+            </div>
+            <div class="viral-idea">
+                <div class="viral-title">
+                    <span>😱</span>
+                    "Coisas que só existem nos EUA"
+                </div>
+                <div class="viral-hook">Hook: "Isso aqui no Brasil seria CRIME..."</div>
+                <div class="viral-description">
+                    Drive-thru pharmacy, return de qualquer coisa, free refill. Reações genuínas.
+                </div>
+            </div>
+            <div class="viral-idea">
+                <div class="viral-title">
+                    <span>🔥</span>
+                    "Antes e Depois da mudança"
+                </div>
+                <div class="viral-hook">Hook: "Minha vida há 2 anos vs hoje..."</div>
+                <div class="viral-description">
+                    Comparação visual: fotos antigas vs vida atual. Foco na evolução pessoal.
+                </div>
+            </div>
+            <div class="viral-idea">
+                <div class="viral-title">
+                    <span>💭</span>
+                    "Checklist: Está pronto para os EUA?"
+                </div>
+                <div class="viral-hook">Hook: "Se você tem 7/10 dessas coisas..."</div>
+                <div class="viral-description">
+                    Lista interativa: inglês, dinheiro, visto, network. Pessoas marcam amigos.
+                </div>
+            </div>
+        </div>
+        
+        <div id="posts" class="tab-content">
+            <div class="post-schedule">
+                <div class="schedule-time">📅 POSTS DIÁRIOS - 10:00h</div>
+                <div class="post-grid">
+                    <div class="day-post">
+                        <div class="day-name">Segunda</div>
+                        <div class="post-type">Motivação</div>
+                    </div>
+                    <div class="day-post">
+                        <div class="day-name">Terça</div>
+                        <div class="post-type">Dicas</div>
+                    </div>
+                    <div class="day-post">
+                        <div class="day-name">Quarta</div>
+                        <div class="post-type">Educativo</div>
+                    </div>
+                    <div class="day-post">
+                        <div class="day-name">Quinta</div>
+                        <div class="post-type">Bastidores</div>
+                    </div>
+                    <div class="day-post">
+                        <div class="day-name">Sexta</div>
+                        <div class="post-type">Conquistas</div>
+                    </div>
+                    <div class="day-post">
+                        <div class="day-name">Sábado</div>
+                        <div class="post-type">Lifestyle</div>
+                    </div>
+                    <div class="day-post">
+                        <div class="day-name">Domingo</div>
+                        <div class="post-type">Reflexão</div>
+                    </div>
+                </div>
+            </div>
+            <div class="section">
+                <div class="section-title">
+                    <span class="section-icon">📝</span>
+                    Checklist Semanal Posts
+                </div>
+                <div class="checklist">
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Segunda - Post motivacional criado</div>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Terça - Carrossel de dicas pronto</div>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Quarta - Conteúdo educativo preparado</div>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Quinta - Foto dos bastidores</div>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Sexta - Conquista da semana</div>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Sábado - Lifestyle americano</div>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checkbox" onclick="toggleCheck(this)"></div>
+                        <div class="checklist-text">Domingo - Post reflexivo</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function showTab(tabName, clickedTab) {
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            clickedTab.classList.add('active');
+        }
+        
+        function toggleCheck(checkbox) {
+            checkbox.classList.toggle('checked');
+            const item = checkbox.closest('.checklist-item');
+            item.classList.toggle('completed');
+            updateProgress();
+        }
+        
+        function updateProgress() {
+            const totalChecks = document.querySelectorAll('.checkbox').length;
+            const checkedBoxes = document.querySelectorAll('.checkbox.checked').length;
+            const percentage = Math.round((checkedBoxes / totalChecks) * 100);
+            const progressFill = document.getElementById('progressFill');
+            const completionText = document.getElementById('completionText');
+            
+            progressFill.style.width = percentage + '%';
+            completionText.textContent = percentage + '% concluído hoje';
+            
+            if (percentage === 100) {
+                setTimeout(() => {
+                    alert('🎉 Parabéns! Você completou todas as tarefas do dia!\n\nSeu conteúdo está pronto para bombar! 🚀');
+                    progressFill.style.background = 'linear-gradient(135deg, #00b894, #00cec9)';
+                    completionText.textContent = '✅ Missão cumprida! Tudo pronto!';
+                    completionText.style.color = '#00b894';
+                    completionText.style.fontWeight = '600';
+                }, 500);
+            } else {
+                progressFill.style.background = 'linear-gradient(135deg, #667eea, #764ba2)';
+                completionText.style.color = '#aaa';
+                completionText.style.fontWeight = '400';
+            }
+        }
+        
+        function resetAll() {
+            if (confirm('Tem certeza que deseja reiniciar todas as tarefas?')) {
+                document.querySelectorAll('.checkbox').forEach(checkbox => {
+                    checkbox.classList.remove('checked');
+                    checkbox.closest('.checklist-item').classList.remove('completed');
+                });
+                const progressFill = document.getElementById('progressFill');
+                const completionText = document.getElementById('completionText');
+                progressFill.style.width = '0%';
+                progressFill.style.background = 'linear-gradient(135deg, #667eea, #764ba2)';
+                completionText.textContent = '0% concluído hoje';
+                completionText.style.color = '#aaa';
+                completionText.style.fontWeight = '400';
+                alert('✅ Tudo reiniciado! Comece do zero! 🚀');
+            }
+        }
+        
+        updateProgress();
+    </script>
+</body>
+</html>
